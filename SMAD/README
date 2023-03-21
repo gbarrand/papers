@@ -1,8 +1,11 @@
 
+ The code in SMAD.cpp is a computer cross-chek of the formulas found in the paper:
+   Symmetric Lorentz-Minkowski, Antisymmetric Dirac-Majorana
+
  To build :
    UNIX> cd ./inlib/examples/cpp
    UNIX> c++ -I../.. SMAD.cpp
 
- To run :
-   UNIX> ./a.out [options]
-
+ To run:
+   UNIX> ./a.out
+   UNIX> ./a.out -verbose
