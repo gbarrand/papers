@@ -1,3 +1,5 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
 
 #ifdef INLIB_MEM
 #include <inlib/mem>
