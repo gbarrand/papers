@@ -1,0 +1,458 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_umat
+#define inlib_umat
+
+#include "mat"
+#include "matout"
+
+namespace inlib {
+
+template <class MAT,class METRIC,class PREC>
+inline bool check_anticometric(std::ostream& a_out,const std::vector<MAT>& a_reps,const typename MAT::elem_t& a_factor,const METRIC& a_metric,PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  // check that:
+  //   {a_reps(alpha),a_reps(beta)} = a_factor * 2 * a_metric(alpha,beta) * Id
+
+  typedef typename MAT::elem_t T;
+
+  size_t dim = a_metric.dimension();
+
+  if(a_reps.size()!=dim) {
+    a_out << "inlib::check_anticometric: rep.size (" << a_reps.size() << ") != metrid.dimension (" << a_metric.dimension() << ")."
+          << std::endl;
+    return false;
+  }
+
+  MAT left,right,tmp;
+  for(size_t mu=0;mu<dim;mu++) {
+    for(size_t nu=0;nu<dim;nu++) {
+      anticommutator(a_reps[mu],a_reps[nu],tmp,left);
+      right.set_identity();
+      right.multiply(a_factor*T(2)*a_metric.value(mu,nu));
+      if(!left.equal_prec(right,a_epsilon,a_fabs)) {
+        mat_dump(a_out,left,128,"inlib::check_anticometric: problem with {reps(%d),reps(%d)}",mu,nu);
+        mat_dump(a_out,"expected :",right);
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+template <class MAT,unsigned int NUM,class PREC>
+inline bool check_rep_commutator(std::ostream& a_out,const std::vector<MAT>& a_reps,
+                                 const PREC a_csts[NUM][NUM][NUM],
+                                 PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  // check [a_reps(a),a_reps(b)] = a_csts[a,b,c]*a_reps(c)
+  size_t nrep = a_reps.size();
+  if(nrep!=NUM) {
+    a_out << "inlib::check_rep_commutator : nrep!=NUM." << std::endl;
+    return false;
+  }
+  if(!nrep) {
+    a_out << "inlib::check_rep_commutator : nrep is null." << std::endl;
+    return false;
+  }
+  MAT zero = a_reps[0];zero.set_zero();
+  MAT tmp(zero);
+  MAT left(zero);
+  MAT right(zero);
+  for(size_t j=0;j<nrep;j++) {
+    for(size_t k=0;k<nrep;k++) {
+      commutator(a_reps[j],a_reps[k],tmp,left);
+      right.set_zero();
+      for(size_t l=0;l<nrep;l++) {
+        tmp = a_reps[l];
+        tmp.multiply(a_csts[j][k][l]);
+        right += tmp;
+      }
+      if(!left.equal_prec(right,a_epsilon,a_fabs)) {
+        mat_dump(a_out,left,128,"inlib::check_rep_commutator: problem with [rep_%d,rep_%d] (nrep %d,dim %d) :",
+	         j,k,nrep,zero.dimension());
+        mat_dump(a_out,"right :",right);
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <class MAT,class PREC>
+inline bool check_equals_prec(std::ostream& a_out,const std::vector<MAT>& a_1,const std::vector<MAT>& a_2,PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  if(a_1.size()!=a_2.size()) {
+    a_out << "inlib::check_equals_prec: not same sizes." << std::endl;
+    return false;
+  }
+  size_t nrep = a_1.size();
+  for(size_t irep=0;irep<nrep;irep++) {
+    if(!a_1[irep].equal_prec(a_2[irep],a_epsilon,a_fabs)) {
+      mat_dump(a_out,a_1[irep],128,"inlib::check_equals_prec : a_1(%d) != a_2(%d) :",irep,irep);
+      mat_dump(a_out,a_2[irep],128,"a_2(%d) :",irep);
+      return false;
+    }
+  }
+  return true;
+}
+
+template <class MAT,class CST,class PREC>
+inline bool check_rep_gam_coms_up(std::ostream& a_out,const std::vector<MAT>& a_reps,const std::vector<MAT>& a_gams,const std::vector<CST>& a_csts,PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  // check that [a_reps[a],a_gams(mu)] = a_csts(a)(nu,mu)*a_gams(nu)
+  //
+  //                  mu           mu
+  // [a_reps[a],a_gams  ] = csts(a)   * a_gams(nu)
+  //                               nu
+  //
+  size_t nrep = a_reps.size();
+  if(nrep!=a_csts.size()) {
+    a_out << "inlib::check_rep_gam_coms_up: a_reps/a_csts size mismatch " << a_reps.size() << ", csts " << a_csts.size() << "." << std::endl;
+    return false;
+  }
+  if(!nrep) {
+    a_out << "inlib::check_rep_gam_coms_up: a_reps.size() is null." << std::endl;
+    return false;
+  }
+  size_t _dim = a_csts[0].dimension();
+  if(a_gams.size()!=_dim) {
+    a_out << "inlib::check_rep_gam_coms_up: a_gams/a_csts size mismatch " << a_gams.size() << ", expected " << _dim << "." << std::endl;
+    return false;
+  }
+  MAT zero = a_reps[0];zero.set_zero();
+  MAT tmp(zero);
+  MAT left(zero);
+  MAT right;
+ {for(size_t a=0;a<nrep;a++) {
+    for(size_t mu=0;mu<_dim;mu++) {
+      commutator(a_reps[a],a_gams[mu],tmp,left);
+      right.set_zero();
+      for(size_t nu=0;nu<_dim;nu++) {
+        tmp = a_gams[nu];
+        tmp.multiply(a_csts[a].value(mu,nu)); //warning.
+        right += tmp;
+      }
+      if(!left.equal_prec(right,a_epsilon,a_fabs)) {
+        mat_dump(a_out,left,128,"inlib::check_rep_gam_coms_up: problem with [rep_%d,gam_%d] :",a,mu);
+        mat_dump(a_out,"right :",right);
+        return false;
+      }
+    }
+  }}
+
+  return true;
+}
+
+template <class MAT,class CST,class PREC>
+inline bool check_rep_gam_coms_down(std::ostream& a_out,const std::vector<MAT>& a_reps,const std::vector<MAT>& a_gams,const std::vector<CST>& a_csts,PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  // check that [a_reps[a],a_gams(mu)] = a_csts(a)(nu,mu)*a_gams(nu)
+  //
+  //                               nu
+  // [a_reps[a],a_gams  ] = csts(a)   * a_gams(nu)
+  //                  mu           mu
+  //
+  size_t nrep = a_reps.size();
+  if(nrep!=a_csts.size()) {
+    a_out << "inlib::check_rep_gam_coms_down: a_reps/a_csts size mismatch " << a_reps.size() << ", csts " << a_csts.size() << "." << std::endl;
+    return false;
+  }
+  if(!nrep) {
+    a_out << "inlib::check_rep_gam_coms_down: a_reps.size() is null." << std::endl;
+    return false;
+  }
+  size_t _dim = a_csts[0].dimension();
+  if(a_gams.size()!=_dim) {
+    a_out << "inlib::check_rep_gam_coms_down: a_gams/a_csts size mismatch " << a_gams.size() << ", expected " << _dim << "." << std::endl;
+    return false;
+  }
+  MAT zero = a_reps[0];zero.set_zero();
+  MAT tmp(zero);
+  MAT left(zero);
+  MAT right;
+ {for(size_t a=0;a<nrep;a++) {
+    for(size_t mu=0;mu<_dim;mu++) {
+      commutator(a_reps[a],a_gams[mu],tmp,left);
+      right.set_zero();
+      for(size_t nu=0;nu<_dim;nu++) {
+        tmp = a_gams[nu];
+        tmp.multiply(a_csts[a].value(nu,mu));
+        right += tmp;
+      }
+      if(!left.equal_prec(right,a_epsilon,a_fabs)) {
+        mat_dump(a_out,left,128,"inlib::check_rep_gam_coms_down : problem with [rep_%d,gam_%d] :",a,mu);
+        mat_dump(a_out,"right :",right);
+        return false;
+      }
+    }
+  }}
+
+  return true;
+}
+
+template <class MAT,class MATC,class RAND,class PREC>
+inline bool check_exp_LRC_relation_up(std::ostream& a_out,
+                                   const std::vector<MAT>& a_L_reps,
+                                   const std::vector<MAT>& a_sigs,
+                                   const std::vector<MAT>& a_R_reps,
+                                   const std::vector<MATC>& a_Cs,
+                                   RAND& a_rand,PREC(*a_fabs)(const typename MAT::elem_t&),
+				   unsigned int a_nexp,PREC a_epsilon) {
+  // check : exp(omega*Ls)*sigs[mu]*exp(omega*Rs) = (exp(omega*C))(mu,nu)*sigs[nu].
+  size_t nrep = a_L_reps.size();
+  if(!nrep) {
+    a_out << "inlib::check_rep_LRC_relation_up: nrep is null." << std::endl;
+    return false;
+  }
+  if(nrep!=a_R_reps.size()) {
+    a_out << "inlib::check_exp_LRC_relation_up: L/R reps size mismatch." << std::endl;
+    return false;
+  }
+  size_t nsig = a_sigs.size();
+  if(!nsig) {
+    a_out << "inlib::check_exp_LRC_relation_up: no sigs." << std::endl;
+    return false;
+  }
+  if(a_Cs.size()!=nrep) {
+    a_out << "inlib::check_exp_LRC_relation_up: Cs/reps size mismatch: " << a_Cs.size() << " " << nrep << std::endl;
+    return false;
+  }
+  if(a_Cs[0].dimension()!=nsig) {
+    a_out << "inlib::check_exp_LRC_relation_up: Cs dimension/sigs size mismatch." << std::endl;
+    return false;
+  }
+
+// {for(size_t a=0;a<nrep;a++) {
+//    mat_dump(a_out,a_reps[a],128,"reps[%d]",a);
+//  }}
+// {for(size_t mu=0;mu<nsig;mu++) {
+//    mat_dump(a_out,a_sigs[mu],128,"sigs[%d]",mu);
+//  }}
+
+  MAT zero = a_L_reps[0];zero.set_zero();
+
+  std::vector<double> rot_boost(nrep);
+  for(size_t a=0;a<nrep;a++) rot_boost[a] = a_rand.shoot();
+
+  MAT exp_L(zero);
+ {MAT tmp(zero),tmp1(zero);
+  for(size_t a=0;a<nrep;a++) {
+    tmp1 = a_L_reps[a];
+    tmp1.multiply(rot_boost[a]);
+    tmp += tmp1;
+  }
+  tmp.exp(a_nexp,exp_L);}
+
+  MAT exp_R(zero);
+ {MAT tmp(zero),tmp1(zero);
+  for(size_t a=0;a<nrep;a++) {
+    tmp1 = a_R_reps[a];
+    tmp1.multiply(rot_boost[a]);
+    tmp += tmp1;
+  }
+  tmp.exp(a_nexp,exp_R);}
+
+  MATC exp_Cs;
+ {MATC tmp;
+  for(size_t a=0;a<nrep;a++) tmp += rot_boost[a]*a_Cs[a];
+  tmp.exp(a_nexp,exp_Cs);}
+
+ {MAT left(zero),right(zero),tmp(zero),tmp1(zero);
+  for(size_t alpha=0;alpha<nsig;alpha++) {
+    left = exp_L*a_sigs[alpha]*exp_R;
+    right.set_zero();
+    for(size_t beta=0;beta<nsig;beta++) {
+      tmp1 = a_sigs[beta];
+      tmp1.multiply(exp_Cs.value(alpha,beta));
+      right += tmp1;
+    }
+    if(!left.equal_prec(right,a_epsilon,a_fabs)) {
+      mat_dump(a_out,left,128,"problem with sigs(%d) (nrep %d,nsig %d, dim %d)",alpha,nrep,nsig,zero.dimension());
+      mat_dump(a_out,"right :",right);
+      return false;
+    }
+  }}
+
+  return true;
+}
+
+template <class MAT,class MATC,class RAND,class PREC>
+inline bool check_exp_LRC_relation_down(std::ostream& a_out,
+                                   const std::vector<MAT>& a_L_reps,
+                                   const std::vector<MAT>& a_sigs,
+                                   const std::vector<MAT>& a_R_reps,
+                                   const std::vector<MATC>& a_Cs,
+                                   RAND& a_rand,PREC(*a_fabs)(const typename MAT::elem_t&),
+				   unsigned int a_nexp,PREC a_epsilon) {
+  // check : exp(omega*Ls)*sigs[mu]*exp(omega*Rs) = (exp(omega*C))(nu,mu)*sigs[nu].
+  std::vector<MATC> Cs_trans(a_Cs);
+  size_t nrep = a_L_reps.size();
+ {for(size_t a=0;a<nrep;a++) Cs_trans[a].transpose();}
+  return check_exp_LRC_relation_up(a_out,a_L_reps,a_sigs,a_R_reps,Cs_trans,a_rand,a_fabs,a_nexp,a_epsilon);
+}
+
+template <class MAT,class METRIC,class PREC>
+inline bool check_rep_metric(std::ostream& a_out,const std::vector<MAT>& a_reps,const METRIC& a_metric,PREC(*a_fabs)(const typename MAT::elem_t&),PREC a_epsilon = PREC(1e-10)) {
+  METRIC metric;
+  if(!inlib::set_metric(a_reps,metric)) {
+    a_out << "inlib::check_rep_metric: set_metric failed." << std::endl;
+    return false;
+  }
+  if(!metric.equal_prec(a_metric,a_epsilon,a_fabs)) {
+    inlib::mat_dump(a_out,"inlib::check_rep_metric: problem:",metric);
+    inlib::mat_dump(a_out,"expected:",a_metric);
+    return false;
+  }
+  return true;
+}
+
+template <class MAT>
+inline bool check_is_symmetric(std::ostream& a_out,const MAT& a_mat) {
+  if(!a_mat.is_symmetric()) {
+    mat_dump(a_out,a_mat,128,"inlib::check_is_symmetric: not symmetric :");
+    return false;
+  }
+  return true;
+}
+
+template <class MAT>
+inline bool check_is_antisymmetric(std::ostream& a_out,const MAT& a_mat) {
+  if(!a_mat.is_antisymmetric()) {
+    mat_dump(a_out,a_mat,128,"inlib::check_is_antisymmetric: not antisymmetric :");
+    return false;
+  }
+  return true;
+}
+
+template <class MAT>
+inline bool check_is_symmetric(std::ostream& a_out,const std::vector<MAT>& a_mats) {
+  size_t _size = a_mats.size();
+  if(!_size) {
+    a_out << "inlib::check_is_symmetric: nrep is null." << std::endl;
+    return false;
+  }
+ {for(size_t a=0;a<_size;a++) {
+    if(!a_mats[a].is_symmetric()) {
+      mat_dump(a_out,a_mats[a],128,"inlib::check_is_symmetric: a_mats[%d] not symmetric for :",a);
+      return false;
+    }
+  }}
+  return true;
+}
+
+template <class MAT,class PREC>
+inline bool check_is_symmetric(std::ostream& a_out,const std::vector<MAT>& a_mats,PREC(*a_fabs)(const typename MAT::elem_t&)) {
+  size_t _size = a_mats.size();
+  if(!_size) {
+    a_out << "inlib::check_is_symmetric_prec: nrep is null." << std::endl;
+    return false;
+  }
+  PREC depsilon = PREC(1e-10);
+ {for(size_t a=0;a<_size;a++) {
+    if(!a_mats[a].is_symmetric_prec(depsilon,a_fabs)) {
+      mat_dump(a_out,a_mats[a],128,"inlib::check_is_symmetric_prec: a_mats[%d] not symmetric for :",a);
+      return false;
+    }
+  }}
+  return true;
+}
+
+template <class MAT>
+inline bool check_is_antisymmetric(std::ostream& a_out,const std::vector<MAT>& a_mats) {
+  size_t _size = a_mats.size();
+  if(!_size) {
+    a_out << "inlib::check_is_antisymmetric: nrep is null." << std::endl;
+    return false;
+  }
+ {for(size_t a=0;a<_size;a++) {
+    if(!a_mats[a].is_antisymmetric()) {
+      mat_dump(a_out,a_mats[a],128,"inlib::check_is_antisymmetric: a_mats[%d] not antisymmetric for :",a);
+      return false;
+    }
+  }}
+  return true;
+}
+
+template <class MAT,class PREC>
+inline bool check_is_antisymmetric(std::ostream& a_out,const std::vector<MAT>& a_mats,PREC(*a_fabs)(const typename MAT::elem_t&)) {
+  size_t _size = a_mats.size();
+  if(!_size) {
+    a_out << "inlib::check_is_antisymmetric_prec: nrep is null." << std::endl;
+    return false;
+  }
+  PREC depsilon = PREC(1e-10);
+ {for(size_t a=0;a<_size;a++) {
+    if(!a_mats[a].is_antisymmetric_prec(depsilon,a_fabs)) {
+      mat_dump(a_out,a_mats[a],128,"inlib::check_is_antisymmetric_prec: a_mats[%d] not antisymmetric for :",a);
+      return false;
+    }
+  }}
+  return true;
+}
+
+template <size_t NUM,class T>
+inline bool check_constants_are_equal(std::ostream& a_out,const T a_1[NUM][NUM][NUM],const T a_2[NUM][NUM][NUM]) {
+  for(unsigned int i=0;i<NUM;i++) {
+    for(unsigned int j=0;j<NUM;j++) {
+      for(unsigned int k=0;k<NUM;k++) {
+        if(a_1[i][j][k]!=a_2[i][j][k]) {
+	  a_out << "inlib::check_constants_are_equal : failed for (" << i << "," << j << "," << k << ") :" << std::endl;
+	  a_out << " a_1 " << a_1[i][j][k] << ", a_2 " << a_2[i][j][k] << std::endl;
+	  return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+template <class MAT,class RAND,class PREC>
+inline bool check_exp_rep_and_metric(std::ostream& a_out,const std::vector<MAT>& a_reps,const MAT& a_metric,RAND& a_rand,PREC(*a_fabs)(const typename MAT::elem_t&),unsigned int a_nexp = 40,PREC a_epsilon = 1e-10,bool a_dump = true) {
+  // check :
+  //   t(exp(rand*rep)) * metric * exp(rand*rep) = metric
+
+  size_t nrep = a_reps.size();
+
+  if(!nrep) {
+    a_out << "inlib::check_exp_rep_and_metric: null nrep." << std::endl;
+    return false;
+  }
+  MAT zero = a_reps[0];zero.set_zero();
+
+/*
+ {for(size_t a=0;a<nrep;a++) {
+    mat_dump(a_out,a_reps[a],128,"reps[%d]",a);
+  }}
+  mat_dump(a_out,a_sigs[mu],128,"metric",a_mtric);
+*/
+
+  std::vector<double> rot_boost(nrep);
+  for(size_t a=0;a<nrep;a++) rot_boost[a] = a_rand.shoot();
+
+  MAT exp_R(zero);
+ {MAT tmp(zero),tmp1(zero);
+  for(size_t a=0;a<nrep;a++) {
+    tmp1 = a_reps[a];
+    tmp1.multiply(rot_boost[a]);
+    tmp += tmp1;
+  }
+  tmp.exp(a_nexp,exp_R);}
+
+  MAT exp_L = exp_R;
+  exp_L.transpose();
+
+ {MAT left(zero);
+  left = exp_L*a_metric*exp_R;
+  if(!left.equal_prec(a_metric,a_epsilon,a_fabs)) {
+    if(a_dump) {
+      mat_dump(a_out,left,128,"inlib::check_exp_rep_and_metric: problem with metric");
+      mat_dump(a_out,"right (metric) :",a_metric);
+    }
+    return false;
+  }}
+
+  return true;
+}
+
+
+}
+
+#endif

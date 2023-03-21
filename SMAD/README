@@ -1,0 +1,8 @@
+
+ To build :
+   UNIX> cd ./inlib/examples/cpp
+   UNIX> c++ -I../.. SMAD.cpp
+
+ To run :
+   UNIX> ./a.out [options]
+
