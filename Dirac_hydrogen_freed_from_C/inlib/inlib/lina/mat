@@ -163,21 +163,21 @@ inline nmat<T> copy(const mat<T,D>& a_from) {
   return v;
 }
 
-template <class VECTOR>
-inline void multiply(VECTOR& a_vec,const typename VECTOR::value_type& a_left) {
-  typedef typename VECTOR::iterator it_t;
+template <class VEC_MAT>
+inline void multiply(VEC_MAT& a_vec,const typename VEC_MAT::value_type& a_left) {
+  typedef typename VEC_MAT::iterator it_t;
   for(it_t it=a_vec.begin();it!=a_vec.end();++it) *it = (*it) * a_left;
 }
 
-template <class VECTOR>
-inline void multiply(const typename VECTOR::value_type& a_right,VECTOR& a_vec) {
-  typedef typename VECTOR::iterator it_t;
+template <class VEC_MAT>
+inline void multiply(const typename VEC_MAT::value_type& a_right,VEC_MAT& a_vec) {
+  typedef typename VEC_MAT::iterator it_t;
   for(it_t it=a_vec.begin();it!=a_vec.end();++it) *it = a_right * (*it);
 }
 
-template <class VECTOR>
-inline void multiply(VECTOR& a_vec,const typename VECTOR::value_type::elem_t& a_value) {
-  typedef typename VECTOR::iterator it_t;
+template <class VEC_MAT>
+inline void multiply(VEC_MAT& a_vec,const typename VEC_MAT::value_type::elem_t& a_value) {
+  typedef typename VEC_MAT::iterator it_t;
   for(it_t it=a_vec.begin();it!=a_vec.end();++it) (*it).multiply(a_value);
 }
 
@@ -545,13 +545,13 @@ inline bool mat_fabs(const MAT& a_in,MAT& a_ou,REAL(*a_fabs)(const typename MAT:
   return true;
 }
 
-template <class VECTOR,class METRIC>
-inline bool set_metric(const VECTOR& a_reps,METRIC& a_metric) {
-  typedef typename VECTOR::value_type REP;
+template <class VEC_MAT,class METRIC>
+inline bool set_metric(const VEC_MAT& a_reps,METRIC& a_metric) {
+  typedef typename VEC_MAT::value_type MAT;
   a_metric.set_zero();
   size_t number = a_reps.size();
   if(!number) return false;
-  REP tmp(a_reps[0]);
+  MAT tmp(a_reps[0]);
  {for(size_t j=0;j<number;j++) {
     for(size_t k=0;k<number;k++) {
       tmp = a_reps[j]*a_reps[k];

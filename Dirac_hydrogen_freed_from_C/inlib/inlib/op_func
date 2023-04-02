@@ -75,16 +75,17 @@ public:
         if(diff<=zero) break;
         if(count>=2) {
           if(diff>=prev_diff) {
-            m_out << "inlib::op_derivative::value : failed :"
+	  /*m_out << "inlib::op_derivative::value : failed :"
                   << " count " << count << ", x " << a_x
 		  << ", value " << a_v << ", prev " << prev
 		  << ", diff " << diff << " >= prev_diff " << prev_diff
                   << "." << std::endl;
-          //m_out << " Continue..." << std::endl;
-          //a_v = prev;
-          //break;
+            m_out << " Continue..." << std::endl;
             a_v = zero;
             return false;
+	    */
+            a_v = prev;
+            break;
           }
           if(count>=m_iters) {
             //m_out << "inlib::op_derivative::value : converge at " << count << ". value " << a_v << std::endl;

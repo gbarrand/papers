@@ -13,6 +13,7 @@
 //////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////
 //#include <inlib/lina/matTs>
+#ifndef inlib_matTs
 namespace inlib {
 ////////////////////////////////////////////////
 /// D=2 ////////////////////////////////////////
@@ -108,6 +109,7 @@ inline void set_maj_D6_S(MAT& a_m) {
   a_m.multiply(0.5);
 }
 }
+#endif //inlib_matTs
 //////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////
@@ -216,6 +218,107 @@ protected:
 inline inlib::real sqrt_l_m_1(int a_l,int a_m) {return inlib::real_sqrt_const(a_l+a_m+1);}
 inline inlib::real sqrt_l_m(int a_l,int a_m) {return inlib::real_sqrt_const(a_l-a_m);}
 
+#include <inlib/integrate>
+#include <vector>
+
+namespace inlib {
+namespace dirac {
+
+class Z_minus_norm_func : public virtual inlib::integrate_func_2D<inlib::real,inlib::real> {
+  typedef inlib::integrate_func_2D<inlib::real,inlib::real> parent;
+public:
+  Z_minus_norm_func(int a_l,int a_m):m_l(a_l),m_m(a_m) {}
+  virtual ~Z_minus_norm_func() {}
+public:
+  Z_minus_norm_func(const Z_minus_norm_func& a_from)
+  :parent(a_from),m_l(a_from.m_l),m_m(a_from.m_m) {}
+  Z_minus_norm_func& operator=(const Z_minus_norm_func& a_from) {
+    m_l = a_from.m_l;
+    m_m = a_from.m_m;
+    return *this;
+  }
+public:
+  virtual bool eval(const inlib::real& a_theta,const inlib::real& a_phi,inlib::real& a_value) {
+    inlib::real C_l_m;
+    if(!inlib::cos_spherical_harmonic<int,real>(m_m,m_l,a_theta,a_phi,C_l_m,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real C_l_m_1;
+    if(!inlib::cos_spherical_harmonic<int,real>(m_m+1,m_l,a_theta,a_phi,C_l_m_1,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real S_l_m;
+    if(!inlib::sin_spherical_harmonic<int,real>(m_m,m_l,a_theta,a_phi,S_l_m,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real S_l_m_1;
+    if(!inlib::sin_spherical_harmonic<int,real>(m_m+1,m_l,a_theta,a_phi,S_l_m_1,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+
+    inlib::real norm_factor = inlib::real_one()/inlib::real_sqrt(inlib::real_two()*inlib::real(m_l)+inlib::real_one());
+    
+    inlib::real Z1 =  norm_factor*sqrt_l_m_1(m_l,m_m)*C_l_m_1;
+    inlib::real Z2 =  norm_factor*sqrt_l_m(m_l,m_m)*C_l_m;
+    inlib::real Z3 = -norm_factor*sqrt_l_m(m_l,m_m)*S_l_m;
+    inlib::real Z4 =  norm_factor*sqrt_l_m_1(m_l,m_m)*S_l_m_1;
+
+    a_value = inlib::real_sin(a_theta)*(Z1*Z1+Z2*Z2+Z3*Z3+Z4*Z4);
+
+    /*
+    ::printf("debug : %Lg\n",norm_factor);
+    ::printf("debug : %Lg %Lg\n",sqrt_l_m(m_l,m_m),sqrt_l_m_1(m_l,m_m));
+    ::printf("debug : %Lg %Lg %Lg %Lg\n",C_l_m,C_l_m_1,S_l_m,S_l_m_1);
+    ::printf("debug : a_value %Lg\n",a_value);
+    */
+    return true;
+  }
+protected:
+  int m_l;
+  int m_m;
+};
+
+class Z_plus_norm_func : public virtual inlib::integrate_func_2D<inlib::real,inlib::real> {
+  typedef inlib::integrate_func_2D<inlib::real,inlib::real> parent;
+public:
+  Z_plus_norm_func(int a_l,int a_m):m_l(a_l),m_m(a_m) {}
+  virtual ~Z_plus_norm_func() {}
+public:
+  Z_plus_norm_func(const Z_plus_norm_func& a_from)
+  :parent(a_from),m_l(a_from.m_l),m_m(a_from.m_m) {}
+  Z_plus_norm_func& operator=(const Z_plus_norm_func& a_from) {
+    m_l = a_from.m_l;
+    m_m = a_from.m_m;
+    return *this;
+  }
+public:
+  virtual bool eval(const inlib::real& a_theta,const inlib::real& a_phi,inlib::real& a_value) {
+    inlib::real C_l_m;
+    if(!inlib::cos_spherical_harmonic<int,real>(m_m,m_l,a_theta,a_phi,C_l_m,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real C_l_m_1;
+    if(!inlib::cos_spherical_harmonic<int,real>(m_m+1,m_l,a_theta,a_phi,C_l_m_1,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real S_l_m;
+    if(!inlib::sin_spherical_harmonic<int,real>(m_m,m_l,a_theta,a_phi,S_l_m,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+    inlib::real S_l_m_1;
+    if(!inlib::sin_spherical_harmonic<int,real>(m_m+1,m_l,a_theta,a_phi,S_l_m_1,
+          inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) {a_value = 0;return false;}
+
+    inlib::real norm_factor = inlib::real_one()/inlib::real_sqrt(inlib::real_two()*inlib::real(m_l)+inlib::real_one());
+    
+    inlib::real Z1 = -norm_factor*sqrt_l_m(m_l,m_m)*C_l_m_1;
+    inlib::real Z2 = -norm_factor*sqrt_l_m_1(m_l,m_m)*C_l_m;
+    inlib::real Z3 =  norm_factor*sqrt_l_m_1(m_l,m_m)*S_l_m;
+    inlib::real Z4 = -norm_factor*sqrt_l_m(m_l,m_m)*S_l_m_1;
+
+    a_value = inlib::real_sin(a_theta)*(Z1*Z1+Z2*Z2+Z3*Z3+Z4*Z4);
+    return true;
+  }
+protected:
+  int m_l;
+  int m_m;
+};
+
+}}
+
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
@@ -245,23 +348,23 @@ inline bool check_dirac_angular_minus(std::ostream& a_out,int a_l,int a_m,const 
   //_S_l_m        =  sqrt_l_m(l,m)   * SinY(l,  m,a_theta,a_phi):
   //_S_l_m_plus_1 =  sqrt_l_m_1(l,m) * SinY(l,m+1,a_theta,a_phi):
 
-  inlib::dirac::C_theta C_l_m_plus_1_theta(a_out,a_l,a_m+1,a_phi);
-  if(!C_l_m_plus_1_theta.value(a_theta,value)) return false;
+  if(!inlib::cos_spherical_harmonic<int,inlib::real>(a_m+1,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "C l m+1 : " << value << std::endl;
   inlib::real _C_l_m_plus_1 = sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::dirac::C_theta C_l_m_theta(a_out,a_l,a_m,a_phi);
-  if(!C_l_m_theta.value(a_theta,value)) return false;
+  if(!inlib::cos_spherical_harmonic<int,inlib::real>(a_m,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "C l m : " << value << std::endl;
   inlib::real _C_l_m = sqrt_l_m(a_l,a_m)*value;
-
-  inlib::dirac::S_theta S_l_m_theta(a_out,a_l,a_m,a_phi);
-  if(!S_l_m_theta.value(a_theta,value)) return false;
+  
+  if(!inlib::sin_spherical_harmonic<int,inlib::real>(a_m,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "S l m : " << value << std::endl;
   inlib::real _S_l_m =  sqrt_l_m(a_l,a_m)*value;
 
-  inlib::dirac::S_theta S_l_m_plus_1_theta(a_out,a_l,a_m+1,a_phi);
-  if(!S_l_m_plus_1_theta.value(a_theta,value)) return false;
+  if(!inlib::sin_spherical_harmonic<int,inlib::real>(a_m+1,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "S l m+1 : " << value << std::endl;
   inlib::real _S_l_m_plus_1 = sqrt_l_m_1(a_l,a_m)*value;
 
@@ -273,32 +376,28 @@ inline bool check_dirac_angular_minus(std::ostream& a_out,int a_l,int a_m,const 
   //_C_l_m =  sqrt_l_m(l,m)   * CosY(l,  m,a_theta,a_phi):
   //_S_l_m =  sqrt_l_m(l,m)   * SinY(l,  m,a_theta,a_phi):
   //_S_l_m_plus_1 = sqrt_l_m_1(l,m) * SinY(l,m+1,a_theta,a_phi):
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_C_l_m_plus_1_theta(a_out,C_l_m_plus_1_theta,dxepsil,dxfactor,dxiters,
-                         inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_C_l_m_plus_1_theta.value(a_theta,value)) return false;
-  if(a_verbose) a_out << "C l m+1 theta : " << value << std::endl;
+ {inlib::dirac::C_theta func(a_out,a_l,a_m+1,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) return false;
+  if(a_verbose) a_out << "C l m+1 theta : " << value << std::endl;}
   inlib::real _C_l_m_plus_1_theta = sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_C_l_m_theta(a_out,C_l_m_theta,dxepsil,dxfactor,dxiters,
-                  inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_C_l_m_theta.value(a_theta,value)) return false;
-  if(a_verbose) a_out << "C l m theta : " << value << std::endl;
+ {inlib::dirac::C_theta func(a_out,a_l,a_m,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) return false;
+  if(a_verbose) a_out << "C l m theta : " << value << std::endl;}
   inlib::real _C_l_m_theta = sqrt_l_m(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_S_l_m_theta(a_out,S_l_m_theta,dxepsil,dxfactor,dxiters,
-                  inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_S_l_m_theta.value(a_theta,value)) return false;
-  if(a_verbose) a_out << "S l m theta : " << value << std::endl;
+ {inlib::dirac::S_theta func(a_out,a_l,a_m,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) return false;
+  if(a_verbose) a_out << "S l m theta : " << value << std::endl;}
   inlib::real _S_l_m_theta = sqrt_l_m(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_S_l_m_plus_1_theta(a_out,S_l_m_plus_1_theta,dxepsil,dxfactor,dxiters,
-                         inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_S_l_m_plus_1_theta.value(a_theta,value)) return false;
-  if(a_verbose) a_out << "S l m+1 theta : " << value << std::endl;
+ {inlib::dirac::S_theta func(a_out,a_l,a_m+1,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) return false;
+  if(a_verbose) a_out << "S l m+1 theta : " << value << std::endl;}
   inlib::real _S_l_m_plus_1_theta = sqrt_l_m_1(a_l,a_m)*value;
 
   inlib::dirac::C_phi C_l_m_plus_1_phi(a_out,a_l,a_m+1,a_theta);
@@ -359,23 +458,25 @@ inline bool check_dirac_angular_minus(std::ostream& a_out,int a_l,int a_m,const 
   m4d left_phi = inlib::real(2)*(maj_DSs_J[2]-cot_theta*sin_phi*maj_DSs_J[1]-cot_theta*cos_phi*maj_DSs_J[0]);
   m4d left_theta = inlib::real(2)*(cos_phi*maj_DSs_J[1]-sin_phi*maj_DSs_J[0]);
 
+//inlib::real norm_factor = inlib::real_one()/inlib::real_sqrt(inlib::real_two()*inlib::real(m_l)+inlib::real_one());
+
   std::vector<inlib::real> Zs;
-  Zs.push_back(-_C_l_m_plus_1);
-  Zs.push_back(-_C_l_m);
-  Zs.push_back(_S_l_m);
-  Zs.push_back(-_S_l_m_plus_1);
+  Zs.push_back(  _C_l_m_plus_1);
+  Zs.push_back(  _C_l_m);
+  Zs.push_back(- _S_l_m);
+  Zs.push_back(  _S_l_m_plus_1);
 
   std::vector<inlib::real> Z_thetas;
-  Z_thetas.push_back(-_C_l_m_plus_1_theta);
-  Z_thetas.push_back(-_C_l_m_theta);
-  Z_thetas.push_back(_S_l_m_theta);
-  Z_thetas.push_back(-_S_l_m_plus_1_theta);
+  Z_thetas.push_back(  _C_l_m_plus_1_theta);
+  Z_thetas.push_back(  _C_l_m_theta);
+  Z_thetas.push_back(- _S_l_m_theta);
+  Z_thetas.push_back(  _S_l_m_plus_1_theta);
 
   std::vector<inlib::real> Z_phis;
-  Z_phis.push_back(-_C_l_m_plus_1_phi);
-  Z_phis.push_back(-_C_l_m_phi);
-  Z_phis.push_back(_S_l_m_phi);
-  Z_phis.push_back(-_S_l_m_plus_1_phi);
+  Z_phis.push_back(  _C_l_m_plus_1_phi);
+  Z_phis.push_back(  _C_l_m_phi);
+  Z_phis.push_back(- _S_l_m_phi);
+  Z_phis.push_back(  _S_l_m_plus_1_phi);
 
  {for(size_t alpha=0;alpha<4;alpha++) {
     inlib::real left(0);
@@ -388,12 +489,25 @@ inline bool check_dirac_angular_minus(std::ostream& a_out,int a_l,int a_m,const 
       a_out << "check_minus real problem:" << std::endl;
       a_out << "l " << a_l << ", m " << a_m << std::endl;
       a_out << "theta " << a_theta*inlib::real_rad2deg() << ", phi " << a_phi*inlib::real_rad2deg() << std::endl;
-      a_out << "alpha " << alpha << " " << left << " != " << right  << std::endl;
+      a_out << "alpha " << alpha << std::endl;
+      a_out << left << " != " << right  << std::endl;
       return false;
     }
   }}
 
   }
+
+ {inlib::dirac::Z_minus_norm_func func(a_l,a_m);
+  inlib::real value;
+  if(!inlib::integrate_2D<unsigned int,inlib::real>(100,0,inlib::real_pi(),200,0,2.0*inlib::real_pi(),func,value)) {
+    a_out << "check_minus integration problem:" << std::endl;
+    return false;
+  }
+  if(!inlib::numbers_are_equal(value,inlib::real_one(),depsilon,inlib::real_fabs_const)) {
+    a_out << "check_minus integration problem:" << std::endl;
+    a_out << value << " != 1" << std::endl;
+    return false;
+  }}
 
   /////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////
@@ -464,23 +578,23 @@ inline bool check_dirac_angular_plus(std::ostream& a_out,int a_l,int a_m,const i
   //_S_l_m        =  sqrt_l_m_1(l,m) * SinY(l,  m,a_theta,a_phi):
   //_S_l_m_plus_1 =  sqrt_l_m(l,m)   * SinY(l,m+1,a_theta,a_phi):
 
-  inlib::dirac::C_theta C_l_m_plus_1_theta(a_out,a_l,a_m+1,a_phi);
-  if(!C_l_m_plus_1_theta.value(a_theta,value)) {a_out << "C l m+1 failed." << std::endl;return false;}
+  if(!inlib::cos_spherical_harmonic<int,inlib::real>(a_m+1,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "C l m+1 : " << value << std::endl;
   inlib::real _C_l_m_plus_1 = sqrt_l_m(a_l,a_m)*value;
 
-  inlib::dirac::C_theta C_l_m_theta(a_out,a_l,a_m,a_phi);
-  if(!C_l_m_theta.value(a_theta,value)) {a_out << "C l m failed." << std::endl;return false;}
+  if(!inlib::cos_spherical_harmonic<int,inlib::real>(a_m,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "C l m : " << value << std::endl;
   inlib::real _C_l_m = sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::dirac::S_theta S_l_m_theta(a_out,a_l,a_m,a_phi);
-  if(!S_l_m_theta.value(a_theta,value)) {a_out << "S l m failed." << std::endl;return false;}
+  if(!inlib::sin_spherical_harmonic<int,inlib::real>(a_m,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "S l m : " << value << std::endl;
   inlib::real _S_l_m =  sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::dirac::S_theta S_l_m_plus_1_theta(a_out,a_l,a_m+1,a_phi);
-  if(!S_l_m_plus_1_theta.value(a_theta,value)) {a_out << "S l m failed." << std::endl;return false;}
+  if(!inlib::sin_spherical_harmonic<int,inlib::real>(a_m+1,a_l,a_theta,a_phi,value,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi())) return false;
   if(a_verbose) a_out << "S l m+1 : " << value << std::endl;
   inlib::real _S_l_m_plus_1 = sqrt_l_m(a_l,a_m)*value;
 
@@ -488,32 +602,28 @@ inline bool check_dirac_angular_plus(std::ostream& a_out,int a_l,int a_m,const i
   inlib::real dxfactor(0.5);
   unsigned int dxiters = 4;  //=> dxepsil*(dxfactor**dxiters)
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_C_l_m_plus_1_theta(a_out,C_l_m_plus_1_theta,dxepsil,dxfactor,dxiters,
-                         inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_C_l_m_plus_1_theta.value(a_theta,value)) {a_out << "d_theta C l m+1 failed." << std::endl;return false;}
-  if(a_verbose) a_out << "C l m+1 theta : " << value << std::endl;
+ {inlib::dirac::C_theta func(a_out,a_l,a_m+1,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) {a_out << "d_theta C l m+1 failed." << std::endl;return false;}
+  if(a_verbose) a_out << "C l m+1 theta : " << value << std::endl;}
   inlib::real _C_l_m_plus_1_theta = sqrt_l_m(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_C_l_m_theta(a_out,C_l_m_theta,dxepsil,dxfactor,dxiters,
-                  inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_C_l_m_theta.value(a_theta,value)){a_out << "d_theta C l m failed." << std::endl;return false;}
-  if(a_verbose) a_out << "C l m theta : " << value << std::endl;
+ {inlib::dirac::C_theta func(a_out,a_l,a_m,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)){a_out << "d_theta C l m failed." << std::endl;return false;}
+  if(a_verbose) a_out << "C l m theta : " << value << std::endl;}
   inlib::real _C_l_m_theta = sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_S_l_m_theta(a_out,S_l_m_theta,dxepsil,dxfactor,dxiters,
-                  inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_S_l_m_theta.value(a_theta,value)) {a_out << "d_theta S l m failed." << std::endl;return false;}
-  if(a_verbose) a_out << "S l m theta : " << value << std::endl;
+ {inlib::dirac::S_theta func(a_out,a_l,a_m,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) {a_out << "d_theta S l m failed." << std::endl;return false;}
+  if(a_verbose) a_out << "S l m theta : " << value << std::endl;}
   inlib::real _S_l_m_theta = sqrt_l_m_1(a_l,a_m)*value;
 
-  inlib::op_derivative<unsigned int,inlib::real>
-    d_S_l_m_plus_1_theta(a_out,S_l_m_plus_1_theta,dxepsil,dxfactor,dxiters,
-                         inlib::real_set_prec_from,inlib::real_fabs_const);
-  if(!d_S_l_m_plus_1_theta.value(a_theta,value)) {a_out << "d_theta S l m+1 failed." << std::endl;return false;}
-  if(a_verbose) a_out << "S l m+1 theta : " << value << std::endl;
+ {inlib::dirac::S_theta func(a_out,a_l,a_m+1,a_phi);
+  inlib::op_derivative<unsigned int,inlib::real> d_func(a_out,func,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+  if(!d_func.value(a_theta,value)) {a_out << "d_theta S l m+1 failed." << std::endl;return false;}
+  if(a_verbose) a_out << "S l m+1 theta : " << value << std::endl;}
   inlib::real _S_l_m_plus_1_theta = sqrt_l_m(a_l,a_m)*value;
 
   inlib::dirac::C_phi C_l_m_plus_1_phi(a_out,a_l,a_m+1,a_theta);
@@ -610,6 +720,18 @@ inline bool check_dirac_angular_plus(std::ostream& a_out,int a_l,int a_m,const i
 
   }
 
+ {inlib::dirac::Z_plus_norm_func func(a_l,a_m);
+  inlib::real value;
+  if(!inlib::integrate_2D<unsigned int,inlib::real>(100,0,inlib::real_pi(),200,0,2.0*inlib::real_pi(),func,value)) {
+    a_out << "check_plus integration problem:" << std::endl;
+    return false;
+  }
+  if(!inlib::numbers_are_equal(value,inlib::real_one(),depsilon,inlib::real_fabs_const)) {
+    a_out << "check_plus integration problem:" << std::endl;
+    a_out << value << " != 1" << std::endl;
+    return false;
+  }}
+  
   /////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////
@@ -657,8 +779,8 @@ inline bool check_dirac_angular_plus(std::ostream& a_out,int a_l,int a_m,const i
 }
 
 inline bool check_dirac_angular(std::ostream& a_out,bool a_verbose) {
-  inlib::real dtheta(10); //degree.
-  inlib::real dphi = dtheta;
+  inlib::real dtheta(60); //degree.
+  inlib::real dphi(120);
 
   //NOTE: problems with theta=pi.
 
