@@ -1,0 +1,1125 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_mp_real
+#define inlib_mp_real
+
+// multiple precision real functions.
+
+//#define INLIB_MP_DEBUG
+
+#include <ostream>
+
+namespace inlib {
+
+#define INLIB_MP_REAL(a__name,a__value) \
+  REAL a__name;a_set_prec_from(a__name,a_value);a__name = (a__value)
+
+template <class UINT,class REAL> //same order as in mathT
+inline void mp_factorial(const UINT& a_n,REAL& a_value,void(*a_set_prec_from)(REAL&,const REAL&)){
+  INLIB_MP_REAL(one,1);
+  a_value = one;
+  INLIB_MP_REAL(i,one);
+  for(UINT count=1;count<=a_n;count++) {
+    a_value *= i;
+    i += one;
+  }
+}
+
+template <class REAL,class UINT>  // C(alpha,k)
+inline void mp_C_binome(const REAL& a_alpha,const UINT& a_k,REAL& a_value,void(*a_set_prec_from)(REAL&,const REAL&)){
+  INLIB_MP_REAL(one,1);
+  if(a_k<=0) {a_value = one;return;}
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(k,a_k);
+  INLIB_MP_REAL(num,one);
+  INLIB_MP_REAL(num_tmp,a_alpha);
+  INLIB_MP_REAL(den,one);
+  INLIB_MP_REAL(den_tmp,k);
+  for(UINT count=0;count<a_k;count++) {
+    num *= num_tmp;
+    den *= den_tmp;
+    num_tmp = num_tmp+_one;
+    den_tmp = den_tmp+_one;
+  }
+  a_value = num/den;
+}
+
+template <class UINT,class REAL>
+inline bool mp_hermite_polynomial(std::ostream& a_out,
+                                  const UINT& a_n,const REAL& a_x,REAL& a_value,
+                                  void(*a_set_prec_from)(REAL&,const REAL&),
+                                  bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // from https://en.wikipedia.org/wiki/Hermite_polynomials in the paragraph "Explicit expression".
+  //WARNING : a_n must be a positive integer or null.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  a_value = one;
+  if(a_n==UINT(0)) return true;
+
+  INLIB_MP_REAL(_fac_n,zero);
+  mp_factorial<UINT,REAL>(a_n,_fac_n,a_set_prec_from);
+
+  INLIB_MP_REAL(_2x,two*a_x);
+  INLIB_MP_REAL(_pw,zero);
+  if(!a_pow(_2x,a_n,a_value)) {
+    a_out << "inlib::mp_hermite_polynomial : pow(" << _2x <<"," << a_n << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  a_value /= _fac_n;
+
+  INLIB_MP_REAL(_fac,zero);
+  INLIB_MP_REAL(num,one);
+  INLIB_MP_REAL(den,one);
+  INLIB_MP_REAL(i,one);
+
+  UINT n_minus_2m;
+  UINT number = a_n/2;
+  for(UINT m=1;m<=number;m++) {
+    n_minus_2m = a_n-2*m;
+    num *= _one;
+    den *= i;
+    mp_factorial<UINT,REAL>(n_minus_2m,_fac,a_set_prec_from);
+    if(!a_pow(_2x,n_minus_2m,_pw)) {
+      a_out << "inlib::mp_hermite_polynomial : pow(" << _2x <<"," << n_minus_2m << ") failed." << std::endl;
+      a_value = zero;
+      return false;
+    }
+    a_value += (num/(den*_fac))*_pw;
+    i += one;
+  }
+
+  a_value *= _fac_n;
+
+  return true;
+}
+
+template <class REAL>
+inline void mp_hermite_polynomial_3(const REAL& a_x,REAL& a_value,
+                                  void(*a_set_prec_from)(REAL&,const REAL&)) {
+  INLIB_MP_REAL(eight,8);
+  INLIB_MP_REAL(twelve,12);
+  a_value = eight*a_x*a_x*a_x-twelve*a_x;
+}
+
+template <class UINT,class REAL>
+inline bool mp_harmonic_oscillator_hermite(std::ostream& a_out,
+                                           const UINT& a_n,const REAL& a_x,REAL& a_value,
+                                           void(*a_set_prec_from)(REAL&,const REAL&),
+                                           bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                           REAL(*a_exp)(const REAL&)) {
+  // H is for Hermite.
+  // Solution of Schrodinger equation :
+  //    -1/2 d2/dx2(psi) + x**2/2 = En psi
+  // with : En = n+1/2
+  // See exlib/test/gmp.cxx.
+  // It is not normalized. To normalize you have to multiply with 1/sqrt(sqrt(pi)*fac(n)*pow(2,n))
+  if(!mp_hermite_polynomial<UINT,REAL>(a_out,a_n,a_x,a_value,a_set_prec_from,a_pow)) return false;
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  a_value *= a_exp(_one*a_x*a_x/two);
+  return true;
+}
+
+// psi_[1,H(2n)] even
+// psi_[2,H(2n+1)] odd
+
+// psi_H(2n)   proportioanl to psi_1(2n)
+// psi_H(2n+1) proportioanl to psi_2(2n+1)
+
+template <class REAL>
+inline bool mp_1F1(std::ostream& a_out,
+                   const REAL& a_a,const REAL& a_b,const REAL& a_x,REAL& a_value,
+                   void(*a_set_prec_from)(REAL&,const REAL&),
+                   bool(*a_get_epsilon)(REAL&),
+                   void(*a_fabs)(const REAL&,REAL&)) {
+  // from https://en.wikipedia.org/wiki/Confluent_hypergeometric_function
+  //WARNING : a_b can't be a negative integer or null.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(ten,10);
+
+  a_value = one;
+  INLIB_MP_REAL(num,one);
+  INLIB_MP_REAL(den,one);
+
+  INLIB_MP_REAL(prev,zero);
+  INLIB_MP_REAL(diff,zero);
+  INLIB_MP_REAL(prev_diff,zero);
+
+  INLIB_MP_REAL(limit,zero);
+  if(!a_get_epsilon(limit)) {
+    a_out << "inlib::mp_1F1 : get_epsilon() failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+//limit *= ten;
+//if(limit==zero) {a_value = zero;return false;}
+
+  unsigned int count = 0;
+  int count2 = 0;
+  INLIB_MP_REAL(i,one);
+  while(true) {
+    num *= a_x*(a_a+i+_one);
+    den *= (a_b+i+_one)*i;
+    if(den==zero) {
+      a_out << "inlib::mp_1F1 : zero denominator." << std::endl;
+      a_value = zero;
+      return false;
+    }
+    a_value += num/den;
+    if(count>=1) {
+      a_fabs(a_value-prev,diff);
+      if(diff<limit) {
+#ifdef INLIB_MP_DEBUG
+        a_out << "debug : inlib::mp_1F1 : converge for count " << count << ", " << count2
+              << " a " << a_a << ", b " << a_b << ", x " << a_x
+	      << ", value " << a_value << std::endl;
+#endif
+        return true;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) { //logic for the arb package.
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_1F1 : diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+//          a_value = prev;
+//          return true;
+        } else {
+          count2--;
+        }
+        if(count>=10000) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "inlib::mp_1F1 : count " << count << " reached 10000. count2 " << count2 << "." << std::endl;
+#endif
+          return true;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = a_value;
+    i += one;
+    count++;
+  }
+
+  a_value = zero;
+  return false;
+}
+
+template <class REAL>
+inline bool mp_kummer_M(std::ostream& a_out,
+                        const REAL& a_a,const REAL& a_b,const REAL& a_x,REAL& a_value,
+                        void(*a_set_prec_from)(REAL&,const REAL&),
+                        bool(*a_get_epsilon)(REAL&),
+                        void(*a_fabs)(const REAL&,REAL&)) {
+  //WARNING : a_b can't be a negative integer or null.
+  return mp_1F1<REAL>(a_out,a_a,a_b,a_x,a_value,a_set_prec_from,a_get_epsilon,a_fabs);
+}
+
+template <class REAL>
+inline bool mp_parabolic_cylinder_1(std::ostream& a_out,
+                                    const REAL& a_a,const REAL& a_x,REAL& a_value,
+                                    void(*a_set_prec_from)(REAL&,const REAL&),
+                                    bool(*a_get_epsilon)(REAL&),
+                                    void(*a_fabs)(const REAL&,REAL&),
+                                    REAL(*a_exp)(const REAL&)) {
+  // a = -(nu+1/2)
+  // ua = -nu/2-1/4+1/4 = -nu/2 : nu=-0.6 -> ua = 0.3
+  // ub = 1/2
+  // nu = -1 -> ua = 1/2 = ub -> psi(x) = exp(x^2/2)
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(four,4);
+
+  INLIB_MP_REAL(x2,a_x*a_x);
+  INLIB_MP_REAL(ua,a_a/two+one/four); // a/2+1/4
+  if(!mp_1F1<REAL>(a_out,ua,one/two,x2/two,a_value,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+  a_value *= a_exp(_one*x2/four);
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_harmonic_oscillator_parabolic_cylinder_1(std::ostream& a_out,
+                                         const REAL& a_nu,const REAL& a_x,REAL& a_value,
+                                         void(*a_set_prec_from)(REAL&,const REAL&),
+                                         bool(*a_get_epsilon)(REAL&),
+                                         void(*a_fabs)(const REAL&,REAL&),
+                                         REAL(*a_exp)(const REAL&),
+                                         REAL(*a_sqrt)(const REAL&)) {
+  // a = -(nu+1/2)
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(a,_one*(a_nu+one/two)); // -(nu+1/2)
+  return mp_parabolic_cylinder_1<REAL>(a_out,a,a_x*a_sqrt(two),a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_exp);
+}
+
+template <class REAL>
+inline bool mp_parabolic_cylinder_2(std::ostream& a_out,
+                                    const REAL& a_a,const REAL& a_x,REAL& a_value,
+                                    void(*a_set_prec_from)(REAL&,const REAL&),
+                                    bool(*a_get_epsilon)(REAL&),
+                                    void(*a_fabs)(const REAL&,REAL&),
+                                    REAL(*a_exp)(const REAL&)) {
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(three,3);
+  INLIB_MP_REAL(four,4);
+
+  INLIB_MP_REAL(x2,a_x*a_x);
+  INLIB_MP_REAL(ua,a_a/two+three/four); // a/2+3/4
+
+  if(!mp_1F1<REAL>(a_out,ua,three/two,x2/two,a_value,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+  a_value *= a_exp(_one*x2/four);
+  a_value *= a_x;
+  return true;
+}
+
+template <class REAL>
+inline bool mp_harmonic_oscillator_parabolic_cylinder_2(std::ostream& a_out,
+                                         const REAL& a_nu,const REAL& a_x,REAL& a_value,
+                                         void(*a_set_prec_from)(REAL&,const REAL&),
+                                         bool(*a_get_epsilon)(REAL&),
+                                         void(*a_fabs)(const REAL&,REAL&),
+                                         REAL(*a_exp)(const REAL&),
+                                         REAL(*a_sqrt)(const REAL&)) {
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(a,_one*(a_nu+one/two));
+  return mp_parabolic_cylinder_2<REAL>(a_out,a,a_x*a_sqrt(two),a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_exp);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// uses the gamma() function : //////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+template <class REAL>
+inline bool mp_harmonic_oscillator_parabolic_cylinder_12(std::ostream& a_out,
+                                               const REAL& a_nu,const REAL& a_x,REAL& a_value,
+                                               void(*a_set_prec_from)(REAL&,const REAL&),
+                                               bool(*a_get_epsilon)(REAL&),
+                                               void(*a_fabs)(const REAL&,REAL&),
+                                               REAL(*a_exp)(const REAL&),
+                                               REAL(*a_sqrt)(const REAL&),
+                                               REAL(*a_sin)(const REAL&),
+                                               REAL(*a_cos)(const REAL&),
+                                               bool(*a_gamma)(const REAL&,REAL&),
+                                               bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                               void(*a_pi)(REAL&)) {
+  // from wikipedia "Parabolic cylinder function" and "Hermite polynomial".
+  // not normalized. To normalize you have to multiply with 1/(pow(2,xsi)*sqrt(pi))
+
+  // WARNING : because of gamma(),  (nu+1)/2 and (nu/2+1) must not be a negative integer or 0.
+  // WARNING : because of gamma(), -(nu+1)/2 and -(nu/2+1) must not be a positive integer or 0.
+
+  REAL v1;a_set_prec_from(v1,a_value);
+  if(!mp_harmonic_oscillator_parabolic_cylinder_1<REAL>
+        (a_out,a_nu,a_x,v1,a_set_prec_from,a_get_epsilon,a_fabs,a_exp,a_sqrt)) return false;
+  REAL v2;a_set_prec_from(v2,a_value);
+  if(!mp_harmonic_oscillator_parabolic_cylinder_2<REAL>
+       (a_out,a_nu,a_x,v2,a_set_prec_from,a_get_epsilon,a_fabs,a_exp,a_sqrt)) return false;
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  REAL pi;a_set_prec_from(pi,a_value);a_pi(pi);
+
+  INLIB_MP_REAL(xsi,_one*a_nu/two);
+  INLIB_MP_REAL(c_xsi,a_cos(xsi*pi));
+  INLIB_MP_REAL(s_xsi,a_sin(xsi*pi));
+
+  INLIB_MP_REAL(garg1,_one*xsi+one/two); // (nu+1)/2 must not be a negative integer or 0.
+  INLIB_MP_REAL(g1,zero);
+  if(!a_gamma(garg1,g1)) {
+    a_out << "inlib::mp_harmonic_oscillator_parabolic_cylinder_12 : gamma(" << garg1 <<") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }   //gamma((nu+1)/2)
+
+  INLIB_MP_REAL(garg2,_one*xsi+one);   // (nu/2+1) must not be a negative integer or 0.
+  INLIB_MP_REAL(g2,zero);
+  if(!a_gamma(garg2,g2)) {
+    a_out << "inlib::mp_harmonic_oscillator_parabolic_cylinder_12 : gamma(" << garg2 <<") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  if(a_x>=zero) {
+    a_value = c_xsi*g1*v1+_one*a_sqrt(two)*s_xsi*g2*v2; //wikipedia "Parabolic cylinder function" U function.
+  } else {
+    a_value = c_xsi*g1*v1+a_sqrt(two)*s_xsi*g2*v2;
+  }
+
+  INLIB_MP_REAL(pw,zero);
+  if(!a_pow(two,a_nu,pw)) {
+    a_out << "inlib::mp_harmonic_oscillator_parabolic_cylinder_12 : pow(" << two <<"," << a_nu << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  a_value *= pw/a_sqrt(pi);
+
+  // this function tends to zero for both x->+/-inf but is not derivable at zero.
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_kummer_U(std::ostream& a_out,
+                        const REAL& a_a,const REAL& a_b,const REAL& a_x,REAL& a_value,
+                        void(*a_set_prec_from)(REAL&,const REAL&),
+                        bool(*a_get_epsilon)(REAL&),
+                        void(*a_fabs)(const REAL&,REAL&),
+                        bool(*a_gamma)(const REAL&,REAL&),
+                        bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // from https://en.wikipedia.org/wiki/Confluent_hypergeometric_function
+  // WARNING : because of 1F1(), b, 2-b must not be a negative integer or 0.
+  // WARNING : because of gamma(), a, 1-b, b-1, a-b+1 must not be a negative integer or 0.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(a_b_1,a_a+_one*a_b+one); //a-b+1
+
+  INLIB_MP_REAL(garg1,one+_one*a_b); //1-b  must not be a negative integer or 0.
+  INLIB_MP_REAL(g1,zero);
+  if(!a_gamma(garg1,g1)) {
+    a_out << "inlib::mp_kummer_U : gamma(" << garg1 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(garg2,a_b_1); //a-b+1 must not be a negative integer or 0.
+  INLIB_MP_REAL(g2,zero);
+  if(!a_gamma(garg2,g2)) {
+    a_out << "inlib::mp_kummer_U : gamma(" << garg2 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(garg3,a_b+_one); //b-1 must not be a negative integer or 0.
+  INLIB_MP_REAL(g3,zero);
+  if(!a_gamma(garg3,g3)) {
+    a_out << "inlib::mp_kummer_U : gamma(" << garg3 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(garg4,a_a); //must not be a negative integer or 0.
+  INLIB_MP_REAL(g4,zero);
+  if(!a_gamma(garg4,g4)) {
+    a_out << "inlib::mp_kummer_U : gamma(" << garg4 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(pw,0);
+  if(!a_pow(a_x,one+_one*a_b,pw)) {
+    a_out << "inlib::mp_kummer_U : pow(" << a_x <<"," << one+_one*a_b << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  if(g2==zero) {
+    a_out << "inlib::mp_kummer_U : g2 null." << std::endl;
+    a_value = zero;
+    return false;
+  }
+  if(g4==zero) {
+    a_out << "inlib::mp_kummer_U : g4 null." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  REAL A;a_set_prec_from(A,a_value);
+  if(!mp_1F1<REAL>(a_out,a_a,a_b,a_x,A,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+  REAL B;a_set_prec_from(B,a_value);
+  if(!mp_1F1<REAL>(a_out,a_b_1,two+_one*a_b,a_x,B,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+
+  a_value = A*(g1/g2)+B*pw*(g3/g4);
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_kummer_MB(std::ostream& a_out,
+                         const REAL& a_a,const REAL& a_b,const REAL& a_x,REAL& a_value,
+                         void(*a_set_prec_from)(REAL&,const REAL&),
+                         bool(*a_get_epsilon)(REAL&),
+                         void(*a_fabs)(const REAL&,REAL&),
+                         bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // from https://en.wikipedia.org/wiki/Confluent_hypergeometric_function
+  // WARNING : because of 1F1(), b, 2-b must not be a negative integer or 0.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(a_b_1,a_a+_one*a_b+one); //a-b+1
+
+  INLIB_MP_REAL(pw,0);
+  if(!a_pow(a_x,one+_one*a_b,pw)) {
+    a_out << "inlib::mp_kummer_MP : pow(" << a_x <<"," << one+_one*a_b << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  REAL B;a_set_prec_from(B,a_value);
+  if(!mp_1F1<REAL>(a_out,a_b_1,two+_one*a_b,a_x,B,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+
+  a_value = B*pw;
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_kummer_U_all(std::ostream& a_out,
+                        const REAL& a_a,const REAL& a_b,const REAL& a_x,REAL& a_value,
+                        void(*a_set_prec_from)(REAL&,const REAL&),
+                        bool(*a_get_epsilon)(REAL&),
+                        void(*a_fabs)(const REAL&,REAL&),
+                        bool(*a_gamma)(const REAL&,REAL&),
+                        bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // from https://en.wikipedia.org/wiki/Confluent_hypergeometric_function
+  // WARNING : because of 1F1(), b, 2-b must not be a negative integer or 0.
+  // WARNING : because of gamma(), a, 1-b, b-1, a-b+1 must not be a negative integer or 0.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(garg1,one+_one*a_b); //1-b  must not be a negative integer or 0.
+  INLIB_MP_REAL(g1,zero);
+  if(!a_gamma(garg1,g1)) {
+    a_out << "inlib::mp_kummer_U_all : gamma(" << garg1 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(a_b_1,a_a+_one*a_b+one); //a-b+1
+
+  INLIB_MP_REAL(garg2,a_b_1); //a-b+1 must not be a negative integer or 0.
+  INLIB_MP_REAL(g2,zero);
+  if(!a_gamma(garg2,g2)) {
+    a_out << "inlib::mp_kummer_U_all : gamma(" << garg2 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(garg3,a_b+_one); //b-1 must not be a negative integer or 0.
+  INLIB_MP_REAL(g3,zero);
+  if(!a_gamma(garg3,g3)) {
+    a_out << "inlib::mp_kummer_U_all : gamma(" << garg3 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(garg4,a_a); //must not be a negative integer or 0.
+  INLIB_MP_REAL(g4,zero);
+  if(!a_gamma(garg4,g4)) {
+    a_out << "inlib::mp_kummer_U_all : gamma(" << garg4 << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(pw,0);
+  if(!a_pow(a_x,one+_one*a_b,pw)) {
+    a_out << "inlib::mp_kummer_U_all : pow(" << a_x <<"," << one+_one*a_b << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  if(g2==zero) {
+    a_out << "inlib::mp_kummer_U_all : g2 null." << std::endl;
+    a_value = zero;
+    return false;
+  }
+  if(g4==zero) {
+    a_out << "inlib::mp_kummer_U_all : g4 null." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  INLIB_MP_REAL(limit,zero);
+  if(!a_get_epsilon(limit)) {
+    a_out << "inlib::mp_kummer_U_all : get_epsilon() failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  //REAL A;a_set_prec_from(A,a_value);
+  //if(!mp_1F1<REAL>(a_out,a_a,a_b,a_x,A,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+  //REAL B;a_set_prec_from(B,a_value);
+  //if(!mp_1F1<REAL>(a_out,a_b_1,two+_one*a_b,a_x,B,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+
+  a_value = zero;
+
+  INLIB_MP_REAL(a_1,a_a);
+  INLIB_MP_REAL(b_1,a_b);
+  INLIB_MP_REAL(val_1,one);
+  INLIB_MP_REAL(num_1,one);
+  INLIB_MP_REAL(den_1,one);
+
+  INLIB_MP_REAL(a_2,a_b_1);
+  INLIB_MP_REAL(b_2,two+_one*a_b);
+  INLIB_MP_REAL(val_2,one);
+  INLIB_MP_REAL(num_2,one);
+  INLIB_MP_REAL(den_2,one);
+
+  INLIB_MP_REAL(prev,zero);
+  INLIB_MP_REAL(diff,zero);
+  INLIB_MP_REAL(prev_diff,zero);
+
+//limit *= ten;
+//if(limit==zero) {a_value = zero;return false;}
+
+  unsigned int count = 0;
+  int count2 = 0;
+  INLIB_MP_REAL(i,one);
+  while(true) {
+    num_1 *= a_x*(a_1+i+_one);
+    den_1 *= (b_1+i+_one)*i;
+    if(den_1==zero) {
+      a_out << "inlib::mp_kummer_U_all : zero den_1." << std::endl;
+      a_value = zero;
+      return false;
+    }
+    val_1 += num_1/den_1;
+
+    num_2 *= a_x*(a_2+i+_one);
+    den_2 *= (b_2+i+_one)*i;
+    if(den_2==zero) {
+      a_out << "inlib::mp_kummer_U_all : zero den_2." << std::endl;
+      a_value = zero;
+      return false;
+    }
+    val_2 += num_2/den_2;
+
+    a_value = val_1*(g1/g2)+val_2*pw*(g3/g4);
+
+    if(count>=1) {
+      a_fabs(a_value-prev,diff);
+      if(diff<limit) {
+#ifdef INLIB_MP_DEBUG
+#endif
+        a_out << "debug : inlib::mp_kummer_U_all : converge for count " << count << ", " << count2
+              << " a " << a_a << ", b " << a_b << ", x " << a_x
+	      << ", value " << a_value << std::endl;
+        return true;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) { //logic for the arb package.
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_kummer_U_all : diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+        } else {
+          count2--;
+        }
+        if(count>=10000) {
+          a_out << "inlib::mp_kummer_U_all : count " << count << " reached 10000. count2 " << count2 << "." << std::endl;
+          return true;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = a_value;
+    i += one;
+    count++;
+  }
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_kummer_UC(std::ostream& a_out,
+                         const REAL& a_a,const REAL& a_b,
+                         const REAL& a_x,REAL& a_value,
+                         void(*a_set_prec_from)(REAL&,const REAL&),
+                         bool(*a_get_epsilon)(REAL&),
+                         void(*a_fabs)(const REAL&,REAL&),
+                         bool(*a_gamma)(const REAL&,REAL&),
+                         bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // compute a_value by continuity around a_x.
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(limit,zero);
+  if(!a_get_epsilon(limit)) {
+    a_out << "inlib::mp_kummer_UC : get_epsilon() failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+  INLIB_MP_REAL(ten,10);
+
+  INLIB_MP_REAL(epsilon,limit);
+  INLIB_MP_REAL(prev,zero);
+  INLIB_MP_REAL(diff,zero);
+  INLIB_MP_REAL(prev_diff,zero);
+  INLIB_MP_REAL(_ua,zero);
+  INLIB_MP_REAL(_ub,zero);
+
+#ifdef INLIB_MP_DEBUG
+  a_out << "debug : inlib::mp_kummer_UC : a " << a_a << ", b " << a_b << ", x " << a_x << std::endl;
+#endif
+
+  unsigned int iters = 5;
+//iters = 10;
+ {for(unsigned int count=0;count<iters;count++) epsilon *= ten;} //epsilon = 10e(iters)*limit
+  unsigned int count = 0;
+  int count2 = 0;
+  while(count<=iters) {
+    _ua = a_a+epsilon;   //count=iters => epsilon=limit
+    _ub = a_b+ten*epsilon; //must be different than ua because of a-b+1 in kummer_U()
+    if(!mp_kummer_U<REAL>(a_out,_ua,_ub,a_x,a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {
+      a_out << "inlib::mp_kummer_UC : for count " << count << ", kummer_U failed for :"
+            << " ua " << _ua << ", ub " << _ub << ", x " << a_x << std::endl;
+      a_value = zero;
+      return false;
+    }
+    if(count>=1) {
+      a_fabs(a_value-prev,diff);
+      if(diff<=zero) {
+        return true;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_kummer_UC :"
+                << " diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+          //a_value = prev;
+          //return true;
+        } else {
+          count2--;
+        }
+        if(count>=iters) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_kummer_UC :"
+                << " count " << count << " reached iters " << iters << " . count2 " << count2 << "." << std::endl;
+#endif
+          return true;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = a_value;
+    count++;
+    epsilon /= ten;
+  }
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_kummer_UC_mean(std::ostream& a_out,
+                         const REAL& a_a,const REAL& a_b,
+                         const REAL& a_x,REAL& a_value,
+                         void(*a_set_prec_from)(REAL&,const REAL&),
+                         bool(*a_get_epsilon)(REAL&),
+                         void(*a_fabs)(const REAL&,REAL&),
+                         bool(*a_gamma)(const REAL&,REAL&),
+                         bool(*a_pow)(const REAL&,const REAL&,REAL&)) {
+  // compute a_value by continuity around a_x.
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(limit,zero);
+  if(!a_get_epsilon(limit)) {
+    a_out << "inlib::mp_kummer_UC_mean : get_epsilon() failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+  INLIB_MP_REAL(ten,10);
+
+  INLIB_MP_REAL(prev,zero);
+  INLIB_MP_REAL(diff,zero);
+  INLIB_MP_REAL(prev_diff,zero);
+  INLIB_MP_REAL(_ua,zero);
+  INLIB_MP_REAL(_ub,zero);
+
+#ifdef INLIB_MP_DEBUG
+  a_out << "debug : inlib::mp_kummer_UC_mean : a " << a_a << ", b " << a_b << ", x " << a_x << std::endl;
+#endif
+
+  INLIB_MP_REAL(value_plus,0);
+
+ {unsigned int iters = 5;
+  iters = 10;
+  INLIB_MP_REAL(epsilon,limit);
+ {for(unsigned int count=0;count<iters;count++) epsilon *= ten;} //epsilon = 10e(iters)*limit
+  unsigned int count = 0;
+  int count2 = 0;
+  while(count<=iters) {
+    _ua = a_a;
+    _ub = a_b+epsilon; //must be different than ua because of a-b+1 in kummer_U()
+  //_ua = a_a+epsilon;   //count=iters => epsilon=limit
+  //_ub = a_b+ten*epsilon; //must be different than ua because of a-b+1 in kummer_U()
+    //a_out << "debug : 0000 :  ua " << _ua << ", ub " << _ub << ", epsilon " << epsilon << std::endl;
+    if(!mp_kummer_U_all<REAL>(a_out,_ua,_ub,a_x,value_plus,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {
+      a_out << "inlib::mp_kummer_UC_mean : for count " << count << ", kummer_U_all failed for :"
+            << " ua " << _ua << ", ub " << _ub << ", x " << a_x << std::endl;
+      a_value = zero;
+      return false;
+    }
+    if(count>=1) {
+      a_fabs(value_plus-prev,diff);
+      if(diff<=zero) {
+        break;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_kummer_UC_mean :"
+                << " diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+        } else {
+          count2--;
+        }
+        if(count>=iters) {
+#ifdef INLIB_MP_DEBUG
+#endif
+          a_out << "debug : inlib::mp_kummer_UC_mean :"
+                << " count " << count << " reached iters " << iters << " . count2 " << count2 << "." << std::endl;
+	  break;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = value_plus;
+    count++;
+    epsilon /= ten;
+  }}
+
+//a_out << "debug : inlib::mp_kummer_UC_mean : value_plus " << value_plus << std::endl;
+
+  INLIB_MP_REAL(value_minus,0);
+
+ {unsigned int iters = 5;
+  iters = 10;
+  INLIB_MP_REAL(epsilon,limit);
+ {for(unsigned int count=0;count<iters;count++) epsilon *= ten;} //epsilon = 10e(iters)*limit
+  unsigned int count = 0;
+  int count2 = 0;
+  while(count<=iters) {
+    _ua = a_a;
+    _ub = a_b-epsilon; //must be different than ua because of a-b+1 in kummer_U()
+  //_ua = a_a-epsilon;   //count=iters => epsilon=limit
+  //_ub = a_b-ten*epsilon; //must be different than ua because of a-b+1 in kummer_U()
+    //a_out << "debug : 0001 :  ua " << _ua << ", ub " << _ub << ", epsilon " << epsilon << std::endl;
+    if(!mp_kummer_U_all<REAL>(a_out,_ua,_ub,a_x,value_minus,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {
+      a_out << "inlib::mp_kummer_UC_mean : for count " << count << ", kummer_U_all failed for :"
+            << " ua " << _ua << ", ub " << _ub << ", x " << a_x << std::endl;
+      a_value = zero;
+      return false;
+    }
+    if(count>=1) {
+      a_fabs(value_minus-prev,diff);
+      if(diff<=zero) {
+        break;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::mp_kummer_UC_mean :"
+                << " diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+        } else {
+          count2--;
+        }
+        if(count>=iters) {
+#ifdef INLIB_MP_DEBUG
+#endif
+          a_out << "debug : inlib::mp_kummer_UC_mean :"
+                << " count " << count << " reached iters " << iters << " . count2 " << count2 << "." << std::endl;
+          //return true;
+	  break;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = value_minus;
+    count++;
+    epsilon /= ten;
+  }}
+
+  INLIB_MP_REAL(two,2);
+  a_value = (value_minus+value_plus)/two;
+
+  diff = value_plus-value_minus;
+
+  a_out << "debug : inlib::mp_kummer_UC_mean :"
+        << " a_value " << a_value << ", value_minus " << value_minus << ", value_plus " << value_plus
+	<< ", diff " << diff << std::endl;
+
+  return true;
+}
+
+template <class REAL>
+inline bool mp_parabolic_cylinder_KU(std::ostream& a_out,
+                                     const REAL& a_a,const REAL& a_x,REAL& a_value,
+                                     void(*a_set_prec_from)(REAL&,const REAL&),
+                                     bool(*a_get_epsilon)(REAL&),
+                                     void(*a_fabs)(const REAL&,REAL&),
+                                     bool(*a_gamma)(const REAL&,REAL&),
+                                     bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                     REAL(*a_exp)(const REAL&)) {
+  // WARNING : because of mp_kummer_U gamma(), a+1/2, a+1 must not be a negative integer or 0.
+
+  INLIB_MP_REAL(zero,0);
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(four,4);
+
+  INLIB_MP_REAL(x2,a_x*a_x);
+  INLIB_MP_REAL(ua,(a_a+one/two)/two); //passed to mp_kummer_U a+1/2,1/2
+  if(!mp_kummer_U<REAL>(a_out,ua,one/two,x2/two,a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {
+    a_value = zero;return false;
+  }
+  a_value *= a_exp(_one*x2/four);
+  return true;
+}
+
+template <class REAL>
+inline bool mp_harmonic_oscillator_parabolic_cylinder_KU(std::ostream& a_out,
+                                          const REAL& a_nu,const REAL& a_x,REAL& a_value,
+                                          void(*a_set_prec_from)(REAL&,const REAL&),
+                                          bool(*a_get_epsilon)(REAL&),
+                                          void(*a_fabs)(const REAL&,REAL&),
+                                          bool(*a_gamma)(const REAL&,REAL&),
+                                          bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                          REAL(*a_exp)(const REAL&),
+                                          REAL(*a_sqrt)(const REAL&)) {
+  // WARNING : because of mp_parabolic_cylinder_KU gamma(), -nu, -nu+1/2 must not be a negative integer or 0.
+  // WARNING : because of mp_parabolic_cylinder_KU gamma(),  nu, nu-1/2 must not be a positive integer or 0.
+  INLIB_MP_REAL(one,1);
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+  INLIB_MP_REAL(a,_one*(a_nu+one/two)); //-(nu+1/2) = -nu-1/2
+  return mp_parabolic_cylinder_KU<REAL>(a_out,a,a_x*a_sqrt(two),a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow,a_exp);
+}
+
+#define INLIB_MP_REAL_a_kummer_M \
+bool(*a_kummer_M)(std::ostream& a_out,\
+                 const REAL&,const REAL&,const REAL&,REAL&,\
+                 void(*a_set_prec_from)(REAL&,const REAL&),\
+                 bool(*a_get_epsilon)(REAL&),\
+                 void(*a_fabs)(const REAL&,REAL&))
+
+template <class REAL>
+inline bool mp_hydrogen_radial_KM(std::ostream& a_out,
+                                  const REAL& a_K0,
+                                  const REAL& a_l,const REAL& a_n,
+                                  const REAL& a_r,REAL& a_value,
+                                  INLIB_MP_REAL_a_kummer_M,
+                                  void(*a_set_prec_from)(REAL&,const REAL&),
+                                  bool(*a_get_epsilon)(REAL&),
+                                  void(*a_fabs)(const REAL&,REAL&),
+                                  bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                  REAL(*a_exp)(const REAL&)) {
+  // From https://en.wikipedia.org/wiki/Hydrogen_atom#Schrödinger_equation.
+  // K0 = Z*mass*charge*charge/(two*pi*epsilon0*hbar*hbar);
+
+  //   l integer.
+  //   n = integer not zero.
+  //   a_r >= 0.
+  //   0 <= l <= n-1
+
+  INLIB_MP_REAL(zero,0);
+  //if(a_r<zero) {a_value = zero;return false;}
+  //if(a_n<=zero) {a_value = zero;return false;}
+  //if(a_l<zero) {a_value = zero;return false;}
+  INLIB_MP_REAL(one,1);
+  //if(a_n<(a_l+one)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(eps,_one);
+  INLIB_MP_REAL(eta,one);    //eta*eps=-1
+
+  INLIB_MP_REAL(ua,_one*eta*a_n+a_l+one);
+  INLIB_MP_REAL(ub,two*(a_l+one));
+
+  // dimension : [a_r] = L, [rho] = [rho_0] = 1, [K] = [a_K0] = 1/L, [x] = 1
+  INLIB_MP_REAL(rho_0,two*a_n);
+  INLIB_MP_REAL(K,a_K0/rho_0);
+  INLIB_MP_REAL(rho,K*a_r);
+  INLIB_MP_REAL(x,eta*two*rho);
+
+//if(!mp_kummer_M<REAL>(a_out,ua,ub,x,a_value,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+  if(!a_kummer_M(a_out,ua,ub,x,a_value,a_set_prec_from,a_get_epsilon,a_fabs)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(pw,zero);
+  if(!a_pow(rho,a_l,pw)) {
+    a_out << "inlib::mp_hydrogen_radial_KM : pow(" << rho <<"," << a_l << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  a_value *= K*pw*a_exp(eps*rho);
+
+  return true;
+}
+
+#define INLIB_MP_REAL_a_kummer_MB \
+bool(*a_kummer_MB)(std::ostream& a_out,\
+                 const REAL&,const REAL&,const REAL&,REAL&,\
+                 void(*a_set_prec_from)(REAL&,const REAL&),\
+                 bool(*a_get_epsilon)(REAL&),\
+                 void(*a_fabs)(const REAL&,REAL&),\
+                 bool(*a_pow)(const REAL&,const REAL&,REAL&))
+
+template <class REAL>
+inline bool mp_hydrogen_radial_KMB(std::ostream& a_out,
+                                   const REAL& a_K0,
+                                   const REAL& a_l,const REAL& a_n,
+                                   const REAL& a_r,REAL& a_value,
+                                   INLIB_MP_REAL_a_kummer_MB,
+                                   void(*a_set_prec_from)(REAL&,const REAL&),
+                                   bool(*a_get_epsilon)(REAL&),
+                                   void(*a_fabs)(const REAL&,REAL&),
+                                   bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                   REAL(*a_exp)(const REAL&)) {
+  // From https://en.wikipedia.org/wiki/Hydrogen_atom#Schrödinger_equation.
+  // K0 = Z*mass*charge*charge/(two*pi*epsilon0*hbar*hbar);
+
+  //   l integer.
+  //   n = integer not zero.
+  //   a_r >= 0.
+  //   0 <= l < n
+
+  INLIB_MP_REAL(zero,0);
+  //if(a_r<zero) {a_value = zero;return false;}
+  //if(a_n<=zero) {a_value = zero;return false;}
+  //if(a_l<zero) {a_value = zero;return false;}
+  INLIB_MP_REAL(one,1);
+  //if(a_n<(a_l+one)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(eps,_one);
+  INLIB_MP_REAL(eta,one);    //eta*eps=-1
+
+  INLIB_MP_REAL(ua,_one*eta*a_n+a_l+one);
+  INLIB_MP_REAL(ub,two*(a_l+one));
+
+  // dimension : [a_r] = L, [rho] = [rho_0] = 1, [K] = [a_K0] = 1/L, [x] = 1
+  INLIB_MP_REAL(rho_0,two*a_n);
+  INLIB_MP_REAL(K,a_K0/rho_0);
+  INLIB_MP_REAL(rho,K*a_r);
+  INLIB_MP_REAL(x,eta*two*rho);
+
+  if(!a_kummer_MB(a_out,ua,ub,x,a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_pow)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(pw,zero);
+  if(!a_pow(rho,a_l,pw)) {
+    a_out << "inlib::mp_hydrogen_radial_KMB : pow(" << rho <<"," << a_l << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  a_value *= K*pw*a_exp(eps*rho);
+
+  return true;
+}
+
+#define INLIB_MP_REAL_a_kummer_U \
+bool(*a_kummer_U)(std::ostream& a_out,\
+                  const REAL&,const REAL&,const REAL&,REAL&,\
+                  void(*a_set_prec_from)(REAL&,const REAL&),\
+                  bool(*a_get_epsilon)(REAL&),\
+                  void(*a_fabs)(const REAL&,REAL&),\
+                  bool(*a_gamma)(const REAL&,REAL&),\
+                  bool(*a_pow)(const REAL&,const REAL&,REAL&))
+
+template <class REAL>
+inline bool mp_hydrogen_radial_KU(std::ostream& a_out,
+                                  const REAL& a_K0,
+                                  const REAL& a_l,const REAL& a_n,
+                                  const REAL& a_r,REAL& a_value,
+                                  INLIB_MP_REAL_a_kummer_U,
+                                  void(*a_set_prec_from)(REAL&,const REAL&),
+                                  bool(*a_get_epsilon)(REAL&),
+                                  void(*a_fabs)(const REAL&,REAL&),
+                                  bool(*a_gamma)(const REAL&,REAL&),
+                                  bool(*a_pow)(const REAL&,const REAL&,REAL&),
+                                  REAL(*a_exp)(const REAL&)) {
+  // From https://en.wikipedia.org/wiki/Hydrogen_atom#Schrödinger_equation.
+  // K0 = Z*mass*charge*charge/(two*pi*epsilon0*hbar*hbar);
+
+  //   l integer.
+  //   n = integer not zero.
+  //   a_r >= 0.
+  //   0 <= l <= n-1
+
+  INLIB_MP_REAL(zero,0);
+  //if(a_r<zero) {a_value = zero;return false;}
+  //if(a_n<=zero) {a_value = zero;return false;}
+  //if(a_l<zero) {a_value = zero;return false;}
+  INLIB_MP_REAL(one,1);
+  //if(a_n<(a_l+one)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(two,2);
+  INLIB_MP_REAL(_one,-1);
+
+  INLIB_MP_REAL(eps,_one);
+  INLIB_MP_REAL(eta,one);    //eta*eps=-1
+
+  INLIB_MP_REAL(ua,_one*eta*a_n+a_l+one);
+  INLIB_MP_REAL(ub,two*(a_l+one));
+
+  // dimension : [a_r] = L, [rho] = [rho_0] = 1, [K] = [a_K0] = 1/L, [x] = 1
+  INLIB_MP_REAL(rho_0,two*a_n);
+  INLIB_MP_REAL(K,a_K0/rho_0);
+  INLIB_MP_REAL(rho,K*a_r);
+  INLIB_MP_REAL(x,eta*two*rho);
+
+//if(!mp_kummer_U<REAL>(a_out,ua,ub,x,a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {a_value = zero;return false;}
+  if(!a_kummer_U(a_out,ua,ub,x,a_value,a_set_prec_from,a_get_epsilon,a_fabs,a_gamma,a_pow)) {a_value = zero;return false;}
+
+  INLIB_MP_REAL(pw,zero);
+  if(!a_pow(rho,a_l,pw)) {
+    a_out << "inlib::mp_hydrogen_radial_KU : pow(" << rho <<"," << a_l << ") failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+  a_value *= K*pw*a_exp(eps*rho);
+
+  return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
+}
+
+#undef INLIB_MP_SET_REAL
+
+#endif
