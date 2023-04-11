@@ -3,6 +3,7 @@
 
 #include "../../tests/test/check_dirac_full"
 
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
