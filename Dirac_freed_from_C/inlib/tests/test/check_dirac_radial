@@ -217,16 +217,12 @@ protected:
 #include <inlib/test>
 #include <inlib/mathT>
 
-//#include <inlib/edep/physical_constants>
-
 inline bool check_dirac_radial_x2(std::ostream& a_out,bool a_verbose,unsigned int a_prec = 1024) {
   // Check solution of Dirac equation with x**2 potential :
 
-  //inlib::real LL_alpha = inlib::edep::fine_structure_const;
   inlib::real LL_alpha = 0.9;
   inlib::real alpha_2 = LL_alpha*LL_alpha;
   inlib::real LL_v = 1.1;
-//inlib::real LL_v = inlib::edep::electron_mass*inlib::edep::c_light/inlib::edep::hbar_Planck;
   if(a_verbose) a_out << "LL_v " << LL_v << std::endl;
 
   inlib::real dxepsil(1e-3);
