@@ -1,0 +1,120 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_kummer_functions
+#define inlib_kummer_functions
+
+#include <ostream>
+
+namespace inlib {
+
+template <class NUMBER,class PREC> //real or complex.
+inline bool kummer_1F1(std::ostream& a_out,
+                       const NUMBER& a_a,const NUMBER& a_b,const NUMBER& a_x,NUMBER& a_value,
+                       bool(*a_get_epsilon)(PREC&),
+                       PREC(*a_fabs)(const NUMBER&)) {
+  // from https://en.wikipedia.org/wiki/Confluent_hypergeometric_function
+  //WARNING : a_b can't be a negative integer or null.
+
+  NUMBER zero(0);
+  NUMBER one(1);
+  NUMBER two(2);
+  NUMBER minus_one(-1);
+  NUMBER ten(10);
+
+  //if(a_a==zero) {a_value = one;return true;}
+
+  a_value = one;
+  NUMBER num(one);
+  NUMBER den(one);
+
+  NUMBER prev(zero);
+  
+  PREC diff(0);
+  PREC prev_diff(0);
+
+  PREC limit(0);
+  if(!a_get_epsilon(limit)) {
+    a_out << "inlib::kummer_1F1 : get_epsilon() failed." << std::endl;
+    a_value = zero;
+    return false;
+  }
+
+//limit *= ten;
+//if(limit==zero) {a_value = zero;return false;}
+
+  NUMBER tmp(zero);
+
+  //a_out << "debug : 1F1 : a " << a_a << std::endl;
+
+  unsigned int count = 0;
+  int count2 = 0;
+  NUMBER i(one);
+  while(true) {
+    num *= a_x*(a_a+i+minus_one);
+    //tmp = a_a+i+minus_one;
+    //if(tmp==0) {
+    //  a_out << "inlib::kummer_1F1 : a posch is 0. a_a " << a_a << std::endl;
+    //  return true;
+    //}
+    //num *= a_x*tmp;
+    den *= (a_b+i+minus_one)*i;
+    if(den==zero) {
+      a_out << "inlib::kummer_1F1 : zero denominator." << std::endl;
+      a_value = zero;
+      return false;
+    }
+    a_value += num/den;
+    if(count>=1) {
+      diff = a_fabs(a_value-prev);
+      if(diff<limit) {
+#ifdef INLIB_MP_DEBUG
+        a_out << "debug : inlib::kummer_1F1 : converge for count " << count << ", " << count2
+              << " a " << a_a << ", b " << a_b << ", x " << a_x
+	      << ", value " << a_value << std::endl;
+#endif
+        return true;
+      }
+      if(count>=2) {
+        if(diff>=prev_diff) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "debug : inlib::kummer_1F1 : diff>=prev_diff for count " << count << ", " << count2 << "." << std::endl;
+#endif
+          count2++;
+//          a_value = prev;
+//          return true;
+        } else {
+          count2--;
+        }
+        if(count>=10000) {
+#ifdef INLIB_MP_DEBUG
+          a_out << "inlib::kummer_1F1 : count " << count << " reached 10000. count2 " << count2 << "." << std::endl;
+          a_out << " a " << a_a << ", b " << a_b << ", x " << a_x
+                << ", value " << a_value << std::endl;
+#endif
+          return true;
+        }
+      }
+      prev_diff = diff;
+    }
+    prev = a_value;
+    i += one;
+    count++;
+  }
+
+  a_value = zero;
+  return false;
+}
+
+template <class NUMBER,class PREC>
+inline bool kummer_M(std::ostream& a_out,
+                        const NUMBER& a_a,const NUMBER& a_b,const NUMBER& a_x,NUMBER& a_value,
+                        bool(*a_get_epsilon)(PREC&),
+                        PREC(*a_fabs)(const NUMBER&)) {
+  //WARNING : a_b can't be a negative integer or null.
+  return kummer_1F1<NUMBER>(a_out,a_a,a_b,a_x,a_value,a_get_epsilon,a_fabs);
+}
+
+}
+
+#endif
