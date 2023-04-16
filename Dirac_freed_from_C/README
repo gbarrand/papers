@@ -1,6 +1,7 @@
 
  The programs found here cross-check the formulas found in the paper:
    Dirac freed from C
+   https://doi.org/10.13140/RG.2.2.31380.99201
 
  To build and run:
    UNIX> cd ./inlib/examples/cpp
