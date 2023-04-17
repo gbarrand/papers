@@ -1,0 +1,107 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_real
+#define inlib_real
+
+#include <cmath>
+#include <cfloat> //[FLT,DBL,LDBL]_MIN
+
+namespace inlib {
+
+#ifdef INLIB_REAL_LONG_DOUBLE
+typedef long double real;
+inline real real_sqrt(real a_x) {return ::sqrtl(a_x);}
+inline real real_sqrt_const(const real& a_x) {return ::sqrtl(a_x);}
+inline real real_sin(real a_x) {return ::sinl(a_x);}
+inline real real_sin_const(const real& a_x) {return ::sinl(a_x);}
+inline real real_asin(real a_x) {return ::asinl(a_x);}
+inline real real_cos(real a_x) {return ::cosl(a_x);}
+inline real real_cos_const(const real& a_x) {return ::cosl(a_x);}
+inline real real_acos(real a_x) {return ::acosl(a_x);}
+inline real real_atan2(real a_x,real a_y) {return ::atan2l(a_x,a_y);}
+inline real real_pow(real a_x,real a_y) {return ::powl(a_x,a_y);}
+inline real real_pow_const(const real& a_x,const real& a_y) {return ::powl(a_x,a_y);}
+inline real real_exp(real a_x) {return ::expl(a_x);}
+inline real real_mod(real a_x,real a_y) {return ::fmodl(a_x,a_y);}
+#ifndef ANDROID
+inline real real_fabs(real a_x) {return ::fabsl(a_x);}
+inline real real_fabs_const(const real& a_x) {return ::fabsl(a_x);}
+#endif
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#else
+inline real real_gamma(real a_x) {return ::tgammal(a_x);}
+inline real real_gamma_const(const real& a_x) {return ::tgammal(a_x);}
+#endif
+inline real real_pi() {return 3.141592653589793238462643383279502884L;}
+inline real real_two_pi() {return 2.0L*3.141592653589793238462643383279502884L;}
+inline bool real_epsilon(real& a_v) {a_v = LDBL_EPSILON;return true;}
+
+#else //!INLIB_REAL_LONG_DOUBLE
+typedef double real;
+inline real real_sqrt(real a_x) {return ::sqrt(a_x);}
+inline real real_sqrt_const(const real& a_x) {return ::sqrt(a_x);}
+inline real real_sin(real a_x) {return ::sin(a_x);}
+inline real real_sin_const(const real& a_x) {return ::sin(a_x);}
+inline real real_asin(real a_x) {return ::asin(a_x);}
+inline real real_cos(real a_x) {return ::cos(a_x);}
+inline real real_cos_const(const real& a_x) {return ::cos(a_x);}
+inline real real_acos(real a_x) {return ::acos(a_x);}
+inline real real_atan2(real a_x,real a_y) {return ::atan2(a_x,a_y);}
+inline real real_pow(real a_x,real a_y) {return ::pow(a_x,a_y);}
+inline real real_pow_const(const real& a_x,const real& a_y) {return ::pow(a_x,a_y);}
+inline real real_exp(real a_x) {return ::exp(a_x);}
+inline real real_mod(real a_x,real a_y) {return ::fmod(a_x,a_y);}
+inline real real_fabs(real a_x) {return ::fabs(a_x);}
+inline real real_fabs_const(const real& a_x) {return ::fabs(a_x);}
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#else
+inline real real_gamma(real a_x) {return ::tgamma(a_x);}
+inline real real_gamma_const(const real& a_x) {return ::tgamma(a_x);}
+#endif
+inline real real_pi()      {return 3.1415926535897931160E0;}
+inline real real_two_pi()  {return 6.2831853071795862320E0;}
+//inline real real_half_pi() {return 1.5707963267948965580E0;}
+inline bool real_epsilon(real& a_v) {a_v = DBL_EPSILON;return true;}
+#endif //INLIB_REAL_LONG_DOUBLE
+
+inline bool real_gamma_const(const real& a_x,real& a_value) {
+  a_value = real_gamma_const(a_x);
+  return true;
+}
+
+inline bool real_pow_const(const real& a_x,const real& a_y,real& a_v) {
+  if((a_x==0)&&(a_y<0)) {
+    a_v = 0;
+    return false;
+  }
+  a_v = real_pow_const(a_x,a_y);
+  return true;
+}
+
+inline real real_deg2rad() {
+  static const real s_v = real_pi()/real(180);
+  return s_v;
+}
+inline real real_rad2deg() {
+  static const real s_v = real(180)/real_pi();
+  return s_v;
+}
+
+inline void real_set_prec_from(real&,const real&){}
+inline void real_fabs_const(const real& a_x,real& a_value) {a_value = real_fabs_const(a_x);}
+
+inline real real_zero()      {return real(0.0);}
+inline real real_half()      {return real(0.5);}
+inline real real_one()       {return real(1.0);}
+inline real real_two()       {return real(2.0);}
+inline real real_three()     {return real(3.0);}
+inline real real_minus_one() {return real(-1.0);}
+inline real real_minus_two() {return real(-2.0);}
+
+template <class COMPLEX>
+inline real zreal_fabs(const COMPLEX& a_z) {return real_sqrt(a_z.real()*a_z.real()+a_z.imag()*a_z.imag());}
+
+}
+
+#endif

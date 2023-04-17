@@ -1,0 +1,149 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_integrate
+#define inlib_integrate
+
+namespace inlib {
+
+/*
+template <class UINT,class REAL>
+inline bool integrate_1D(const UINT& a_steps,const REAL& a_min,const REAL& a_max,bool(*a_func)(const REAL&,REAL&),REAL& a_value) {
+  a_value = REAL(0);
+  if(!a_steps) return false;
+  REAL dstep = (a_max-a_min)/a_steps;
+  REAL x = a_min;
+  REAL value;
+  for(UINT index=0;index<a_steps;index++,x+=dstep) {
+    if(!a_func(x,value)) {a_value = REAL(0);return false;}
+    a_value += value;
+  }
+  a_value *= dstep;
+  return true;
+}
+
+inline bool check_integrate_func(const double& a_x,double& a_value) {a_value = a_x;return true;}
+inline void check_integrate() {double value;integrate(10,0.0,1.0,check_integrate_func,value);}
+*/
+
+template <class COORD,class VALUE>
+class integrate_func_1D {
+public:
+  virtual ~integrate_func_1D() {}
+public:
+  virtual bool eval(const COORD&,VALUE&) = 0;
+};
+
+template <class UINT,class COORD,class VALUE>
+inline bool integrate_1D(const UINT& a_steps,
+                         const COORD& a_min,const COORD& a_max,
+			 integrate_func_1D<COORD,VALUE>& a_func,VALUE& a_value) {
+  a_value = VALUE(0);
+  if(a_steps==UINT(0)) return false;
+  COORD dstep = (a_max-a_min)/COORD(a_steps);
+  COORD x;
+  VALUE value;
+  x = a_min;
+  for(UINT index=0;index<a_steps;index++,x+=dstep) {
+    if(!a_func.eval(x,value)) {a_value = VALUE(0);return false;}
+    a_value += value;
+  }
+  a_value *= VALUE(dstep);
+  return true;
+}
+
+/*
+template <class UINT,class COORD,class VALUE,class PREC>
+inline bool integrate_1D(const UINT& a_steps,
+                         const COORD& a_min,const COORD& a_max,
+			 integrate_func_1D<COORD,VALUE>& a_func,
+			 VALUE& a_value,PREC a_epsilon,PREC(*a_fabs)(const VALUE&)) {
+  a_value = VALUE(0);
+  if(a_steps==UINT(0)) return false;
+  COORD dstep = (a_max-a_min)/COORD(a_steps);
+  COORD x;
+  VALUE value;
+  x = a_min;
+  UINT count = 0;
+  while(true) {
+    if(!a_func.eval(x,value)) {a_value = VALUE(0);return false;}
+    if(count>100) {
+    if(a_fabs(value)<a_epsilon) {
+      a_value *= VALUE(dstep);
+      return true;
+    }}
+    a_value += value;
+  }
+  a_value *= VALUE(dstep);
+  return false;
+}
+*/
+
+template <class COORD,class VALUE>
+class integrate_func_2D {
+public:
+  virtual ~integrate_func_2D() {}
+public:
+  virtual bool eval(const COORD&,const COORD&,VALUE&) = 0;
+};
+
+template <class UINT,class COORD,class VALUE>
+inline bool integrate_2D(const UINT& a_xsteps,const COORD& a_xmin,const COORD& a_xmax,
+			 const UINT& a_ysteps,const COORD& a_ymin,const COORD& a_ymax,
+			 integrate_func_2D<COORD,VALUE>& a_func,VALUE& a_value) {
+  a_value = VALUE(0);
+  if(a_xsteps==UINT(0)) return false;
+  if(a_ysteps==UINT(0)) return false;
+  COORD xdstep = (a_xmax-a_xmin)/COORD(a_xsteps);
+  COORD ydstep = (a_ymax-a_ymin)/COORD(a_ysteps);
+  COORD x,y;
+  VALUE value;
+  x = a_xmin;
+  for(UINT ix=0;ix<a_xsteps;ix++,x+=xdstep) {
+  y = a_ymin;
+  for(UINT iy=0;iy<a_ysteps;iy++,y+=ydstep) {
+    if(!a_func.eval(x,y,value)) {a_value = VALUE(0);return false;}
+    a_value += value;
+  }}
+  a_value *= VALUE(xdstep)*VALUE(ydstep);
+  return true;
+}
+
+template <class COORD,class VALUE>
+class integrate_func_3D {
+public:
+  virtual ~integrate_func_3D() {}
+public:
+  virtual bool eval(const COORD&,const COORD&,const COORD&,VALUE&) = 0;
+};
+
+template <class UINT,class COORD,class VALUE>
+inline bool integrate_3D(const UINT& a_xsteps,const COORD& a_xmin,const COORD& a_xmax,
+			 const UINT& a_ysteps,const COORD& a_ymin,const COORD& a_ymax,
+			 const UINT& a_zsteps,const COORD& a_zmin,const COORD& a_zmax,
+			 integrate_func_3D<COORD,VALUE>& a_func,VALUE& a_value) {
+  a_value = VALUE(0);
+  if(a_xsteps==(UINT)0) return false;
+  if(a_ysteps==(UINT)0) return false;
+  if(a_zsteps==(UINT)0) return false;
+  COORD xdstep = (a_xmax-a_xmin)/COORD(a_xsteps);
+  COORD ydstep = (a_ymax-a_ymin)/COORD(a_ysteps);
+  COORD zdstep = (a_zmax-a_zmin)/COORD(a_zsteps);
+  COORD x,y,z;
+  VALUE value;
+  x = a_xmin;
+  for(UINT ix=0;ix<a_xsteps;ix++,x+=xdstep) {
+  y = a_ymin;
+  for(UINT iy=0;iy<a_ysteps;iy++,y+=ydstep) {
+  z = a_zmin;
+  for(UINT iz=0;iz<a_zsteps;iz++,z+=zdstep) {
+    if(!a_func.eval(x,y,z,value)) {a_value = VALUE(0);return false;}
+    a_value += value;
+  }}}
+  a_value *= VALUE(xdstep)*VALUE(ydstep)*VALUE(zdstep);
+  return true;
+}
+
+}
+
+#endif

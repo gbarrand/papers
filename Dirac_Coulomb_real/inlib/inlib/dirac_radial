@@ -1,0 +1,277 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_dirac_radial
+#define inlib_dirac_radial
+
+//#define INLIB_DIRAC_KUMMER_U
+
+#include <inlib/kummer_functions>
+#include <inlib/real>
+
+namespace inlib {
+namespace dirac {
+
+class params {
+public:
+  params(const inlib::real& a_LL_chi,
+         const inlib::real& a_LL_alpha,
+         const inlib::real& a_LL_v,
+         const inlib::real& a_LL_u)
+  :LL_chi(a_LL_chi)
+  ,LL_alpha(a_LL_alpha)
+  ,LL_v(a_LL_v)
+  ,LL_u(a_LL_u)
+  {}
+  virtual ~params() {}
+public:
+  params(const params& a_from)
+  :LL_chi(a_from.LL_chi)
+  ,LL_alpha(a_from.LL_alpha)
+  ,LL_v(a_from.LL_v)
+  ,LL_u(a_from.LL_u)
+  {}
+  params& operator=(const params& a_from) {
+    LL_chi = a_from.LL_chi;
+    LL_alpha = a_from.LL_alpha;
+    LL_v = a_from.LL_v;
+    LL_u = a_from.LL_u;
+    return *this;
+  }
+public:
+  inlib::real LL_chi;
+  inlib::real LL_alpha;
+  inlib::real LL_v;
+  inlib::real LL_u;
+};
+
+inline bool BLP_f_discrete(std::ostream& a_out,const params& a_params,const real& a_x,real& a_value) {
+  real LL_chi = a_params.LL_chi;
+  real LL_alpha = a_params.LL_alpha;
+  real LL_v = a_params.LL_v;
+  real LL_u = a_params.LL_u;
+
+  real LL_lambda = inlib::real_sqrt(LL_v*LL_v-LL_u*LL_u);
+  real LL_gamma = inlib::real_sqrt(LL_chi*LL_chi-LL_alpha*LL_alpha);
+  real factor_1 = LL_gamma-LL_alpha*LL_u/LL_lambda;
+  real factor_2 = LL_chi-LL_alpha*LL_v/LL_lambda;
+  real A(1);
+  real B = -A*factor_1/factor_2;
+
+  real kummer_b = inlib::real_two()*LL_gamma+1;
+
+  real rho = 2*LL_lambda*a_x;
+  //a_out << "a_x " << a_x << ", rho " << rho << std::endl;
+
+  real Q1;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1,kummer_b,rho,Q1,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<real>
+    (a_out,factor_1,kummer_b,rho,Q1,
+     inlib::real_epsilon,inlib::real_fabs_const)) return false;
+#endif
+//a_out << "BLP_f_discrete: Q1: kummer_a " << factor_1 << ", kummer_b " << kummer_b << ", rho " << rho << ", value " << Q1 << std::endl;
+  Q1 *= A;
+    
+  real Q2;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1+1,kummer_b,rho,Q2,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<real>
+    (a_out,factor_1+1,kummer_b,rho,Q2,
+     inlib::real_epsilon,inlib::real_fabs_const)) return false;
+#endif
+//a_out << "BLP_f_discrete: Q2 : kummer_a " << factor_1+1 << ", kummer_b " << kummer_b << ", rho " << rho << ", value " << Q2 << std::endl;
+  Q2 *= B;
+
+  a_value = inlib::real_sqrt(LL_v+LL_u)*inlib::real_exp(-LL_lambda*a_x)*inlib::real_pow(rho,LL_gamma-1)*(Q1+Q2);
+    
+  return true;
+}
+
+inline bool BLP_g_discrete(std::ostream& a_out,const params& a_params,const real& a_x,real& a_value) {
+  real LL_chi = a_params.LL_chi;
+  real LL_alpha = a_params.LL_alpha;
+  real LL_v = a_params.LL_v;
+  real LL_u = a_params.LL_u;
+
+  real LL_lambda = inlib::real_sqrt(LL_v*LL_v-LL_u*LL_u);
+  real LL_gamma = inlib::real_sqrt(LL_chi*LL_chi-LL_alpha*LL_alpha);
+  real factor_1 = LL_gamma-LL_alpha*LL_u/LL_lambda;
+  real factor_2 = LL_chi-LL_alpha*LL_v/LL_lambda;
+  real A(1);
+  real B = -A*factor_1/factor_2;
+
+  real kummer_b = inlib::real_two()*LL_gamma+1;
+
+  real rho = 2*LL_lambda*a_x;
+
+  real Q1;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1,kummer_b,rho,Q1,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<real>
+    (a_out,factor_1,kummer_b,rho,Q1,
+     inlib::real_epsilon,inlib::real_fabs_const)) return false;
+#endif
+//a_out << "BLP_g_discrete: Q1: kummer_a " << factor_1 << ", kummer_b " << kummer_b << ", rho " << rho << ", value " << Q1 << std::endl;
+  Q1 *= A;
+
+  real Q2;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1+1,kummer_b,rho,Q2,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<real>
+    (a_out,factor_1+1,kummer_b,rho,Q2,
+     inlib::real_epsilon,inlib::real_fabs_const)) return false;
+#endif
+//a_out << "BLP_g_discrete: Q2: kummer_a " << factor_1+1 << ", kummer_b " << kummer_b << ", rho " << rho << ", value " << Q2 << std::endl;
+  Q2 *= B;
+
+  a_value = -inlib::real_sqrt(LL_v-LL_u)*inlib::real_exp(-LL_lambda*a_x)*inlib::real_pow(rho,LL_gamma-1)*(Q1-Q2);
+
+  return true;
+}
+
+}}
+
+#include "mathz"
+#include "eqT"
+
+namespace inlib {
+namespace dirac {
+
+inline bool BLP_f_continuous(std::ostream& a_out,const params& a_params,const real& a_x,real& a_value) {
+  real LL_chi = a_params.LL_chi;
+  real LL_alpha = a_params.LL_alpha;
+  real LL_v = a_params.LL_v;
+  real LL_u = a_params.LL_u;
+
+  real LL_lambda = inlib::real_sqrt(inlib::real_fabs(LL_v*LL_v-LL_u*LL_u));
+  real LL_gamma = inlib::real_sqrt(LL_chi*LL_chi-LL_alpha*LL_alpha);
+  
+  typedef std::complex<real> zreal;
+  zreal eta(0,1);
+
+  zreal kummer_a = LL_gamma+LL_alpha*LL_u/(LL_lambda*eta);
+  zreal factor_2 = LL_chi+LL_alpha*LL_v/(LL_lambda*eta);
+
+  zreal exp_xsi = kummer_a/factor_2;
+  inlib::real depsilon = 1e-10;
+  if(!inlib::numbers_are_equal(std::abs(exp_xsi),inlib::real_one(),depsilon,inlib::real_fabs_const)) {
+    a_out << "inlib::dirac::BLP_f_continuous: norm problem: " << std::abs(exp_xsi) << std::endl;
+    a_out << "expected: 1." << std::endl;
+    return false;
+  }
+
+  real xsi = -0.5*inlib::real_atan2(std::imag(exp_xsi),std::real(exp_xsi));
+ {zreal left = std::exp(2*xsi/eta);
+  if(!inlib::numbers_are_equal<zreal,real>(left,exp_xsi,depsilon,inlib::zreal_fabs)) {
+    a_out << "inlib::dirac::BLP_g_continuous: exp(xsi) problem: " << left << std::endl;
+    a_out << "expected: " << exp_xsi << std::endl;
+    return false;
+  }}
+
+  zreal kummer_b = inlib::real_two()*LL_gamma+1;
+
+  zreal value;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1,kummer_b,rho,value,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<zreal,real>
+    (a_out,kummer_a,kummer_b,2*LL_lambda*a_x/eta,value,
+     inlib::real_epsilon,inlib::zreal_fabs)) return false;
+#endif
+
+  value *= std::exp(-(xsi+LL_lambda*a_x)/eta);
+
+  real A(1);
+
+  a_value = std::imag(value);
+  a_value *= inlib::real_pow(2*LL_lambda*a_x,LL_gamma-1);
+  a_value *= inlib::real_two()*inlib::real_sqrt(inlib::real_fabs(LL_v+LL_u));
+  a_value *= A;
+
+  return true;
+}
+
+inline bool BLP_g_continuous(std::ostream& a_out,const params& a_params,const real& a_x,real& a_value) {
+  real LL_chi = a_params.LL_chi;
+  real LL_alpha = a_params.LL_alpha;
+  real LL_v = a_params.LL_v;
+  real LL_u = a_params.LL_u;
+
+  real LL_lambda = inlib::real_sqrt(inlib::real_fabs(LL_v*LL_v-LL_u*LL_u));
+  real LL_gamma = inlib::real_sqrt(LL_chi*LL_chi-LL_alpha*LL_alpha);
+  
+  typedef std::complex<real> zreal;
+  zreal eta(0,1);
+
+  zreal kummer_a = LL_gamma+LL_alpha*LL_u/(LL_lambda*eta);
+  zreal factor_2 = LL_chi+LL_alpha*LL_v/(LL_lambda*eta);
+
+  zreal exp_xsi = kummer_a/factor_2;
+  inlib::real depsilon = 1e-10;
+  if(!inlib::numbers_are_equal(std::abs(exp_xsi),inlib::real_one(),depsilon,inlib::real_fabs_const)) {
+    a_out << "inlib::dirac::BLP_g_continuous: norm problem: " << std::abs(exp_xsi) << std::endl;
+    a_out << "expected: 1." << std::endl;
+    return false;
+  }
+
+  real xsi = -0.5*inlib::real_atan2(std::imag(exp_xsi),std::real(exp_xsi));
+ {zreal left = std::exp(2*xsi/eta);
+  if(!inlib::numbers_are_equal<zreal,real>(left,exp_xsi,depsilon,inlib::zreal_fabs)) {
+    a_out << "inlib::dirac::BLP_g_continuous: exp(xsi) problem: " << left << std::endl;
+    a_out << "expected: " << exp_xsi << std::endl;
+    return false;
+  }}
+
+  zreal kummer_b = inlib::real_two()*LL_gamma+1;
+
+  zreal value;
+#ifdef INLIB_DIRAC_KUMMER_U
+  if(!inlib::kummer_U<real>
+    (a_out,factor_1,kummer_b,rho,value,
+     inlib::real_epsilon,inlib::real_fabs_const,
+     inlib::real_gamma_const,inlib::real_pow_const)) return false;
+#else
+  if(!inlib::kummer_M<zreal,real>
+    (a_out,kummer_a,kummer_b,2*LL_lambda*a_x/eta,value,
+     inlib::real_epsilon,inlib::zreal_fabs)) return false;
+#endif
+
+  value *= std::exp(-(xsi+LL_lambda*a_x)/eta);
+
+  real A(1);
+
+  a_value = std::real(value);
+  a_value *= inlib::real_pow(2*LL_lambda*a_x,LL_gamma-1);
+  a_value *= inlib::real_two()*inlib::real_sqrt(inlib::real_fabs(LL_v-LL_u));
+  a_value *= A;
+
+  real LL_epsilon = (LL_v+LL_u)>real_zero()?real_one():real_minus_one();
+
+  a_value *= LL_epsilon;
+    
+  return true;
+}
+
+}}
+
+#endif

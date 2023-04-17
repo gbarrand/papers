@@ -1,0 +1,743 @@
+// Copyright (C) 2010, Guy Barrand. All rights reserved.
+// See the file inlib.license for terms.
+
+#ifndef inlib_check_dirac_full
+#define inlib_check_dirac_full
+
+#ifdef INLIB_MEM
+#include <inlib/mem>
+#endif //INLIB_MEM
+
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+//#include <inlib/lina/matTs>
+#include <inlib/lina/mat>
+#ifndef inlib_matTs
+namespace inlib {
+////////////////////////////////////////////////
+/// D=4 ////////////////////////////////////////
+////////////////////////////////////////////////
+template <class MAT>
+inline void set_J(MAT& a_m) {
+  matrix_set(a_m,    0, 0, 0, 1,
+                     0, 0,-1, 0,
+                     0, 1, 0, 0,
+                    -1, 0, 0, 0);
+}
+template <class MAT>
+inline void set_maj_0_S(MAT& a_m) {
+  matrix_set(a_m,    1, 0, 0, 0,
+                     0, 1, 0, 0,
+                     0, 0, 1, 0,
+                     0, 0, 0, 1);
+}
+template <class MAT>
+inline void set_maj_1_S(MAT& a_m) {
+  matrix_set(a_m,    0, 0, 0,-1,
+                     0, 0,-1, 0,
+                     0,-1, 0, 0,
+                    -1, 0, 0, 0);
+}
+template <class MAT>
+inline void set_maj_2_S(MAT& a_m) {
+  matrix_set(a_m,    1, 0, 0, 0,
+                     0, 1, 0, 0,
+                     0, 0,-1, 0,
+                     0, 0, 0,-1);
+}
+template <class MAT>
+inline void set_maj_3_S(MAT& a_m) {
+  matrix_set(a_m,    0, 0,-1, 0,
+                     0, 0, 0, 1,
+                    -1, 0, 0, 0,
+                     0, 1, 0, 0);
+}
+}
+#endif //inlib_matTs
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+
+#include <inlib/legendre_polynomial>
+
+#include <inlib/dirac_radial>
+#include <vector>
+
+namespace inlib {
+namespace dirac {
+
+inline inlib::real sqrt_l_m_1(int a_l,int a_m) {return inlib::real_sqrt_const(a_l+a_m+1);}
+inline inlib::real sqrt_l_m(int a_l,int a_m) {return inlib::real_sqrt_const(a_l-a_m);}
+
+//template <class real>
+class full_params : public inlib::dirac::params {
+  typedef inlib::dirac::params parent;
+public:
+  full_params(const inlib::real& a_LL_chi,
+              const inlib::real& a_LL_alpha,
+              const inlib::real& a_LL_v,
+              const inlib::real& a_LL_u,
+              int a_l,int a_m)
+  :parent(a_LL_chi,a_LL_alpha,a_LL_v,a_LL_u)
+  ,m_l(a_l),m_m(a_m)
+  {}
+  virtual ~full_params() {}
+public:
+  full_params(const full_params& a_from)
+  :parent(a_from)
+  ,m_l(a_from.m_l),m_m(a_from.m_m)
+  {}
+  full_params& operator=(const full_params& a_from) {
+    parent::operator=(a_from);
+    m_l = a_from.m_l;
+    m_m = a_from.m_m;
+    return *this;
+  }
+public:
+  int m_l;
+  int m_m;
+};
+
+inline bool full_minus_value(std::ostream& a_out,const full_params& a_params,
+                       const real& a_x0,const real& a_r,const real& a_theta,const real& a_phi,
+                       real a_V[4],real a_W[4]) {
+  int a_l = a_params.m_l;
+  int a_m = a_params.m_m;
+  real C_l_m;
+ {bool status = inlib::cos_spherical_harmonic<int,real>(a_m,a_l,a_theta,a_phi,C_l_m,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real S_l_m;
+ {bool status = inlib::sin_spherical_harmonic<int,real>(a_m,a_l,a_theta,a_phi,S_l_m,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real C_l_m_plus_1;
+ {bool status = inlib::cos_spherical_harmonic<int,real>(a_m+1,a_l,a_theta,a_phi,C_l_m_plus_1,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real S_l_m_plus_1;
+ {bool status = inlib::sin_spherical_harmonic<int,real>(a_m+1,a_l,a_theta,a_phi,S_l_m_plus_1,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+    
+  inlib::real norm_factor = inlib::real(1)/inlib::real_sqrt(inlib::real(2*a_l+1));
+
+  std::vector<inlib::real> Zminus;
+  Zminus.push_back( norm_factor*sqrt_l_m_1(a_l,a_m)*C_l_m_plus_1);
+  Zminus.push_back( norm_factor*sqrt_l_m(a_l,a_m)*C_l_m);
+  Zminus.push_back(-norm_factor*sqrt_l_m(a_l,a_m)*S_l_m);
+  Zminus.push_back( norm_factor*sqrt_l_m_1(a_l,a_m)*S_l_m_plus_1);
+
+  real f_r;
+  if(!BLP_f_discrete(a_out,a_params,a_r,f_r)) return false;
+  real g_r;
+  if(!BLP_g_discrete(a_out,a_params,a_r,g_r)) return false;
+
+  real n_1 = inlib::real_sin(a_theta)*inlib::real_cos(a_phi);
+  real n_2 = inlib::real_sin(a_theta)*inlib::real_sin(a_phi);
+  real n_3 = inlib::real_cos(a_theta);
+  typedef inlib::mat<inlib::real,4> m4d;
+  m4d S_1;inlib::set_maj_1_S(S_1);
+  m4d S_2;inlib::set_maj_2_S(S_2);
+  m4d S_3;inlib::set_maj_3_S(S_3);
+  m4d SIGMA = n_1*S_1+n_2*S_2+n_3*S_3;
+  m4d J;set_J(J);
+
+  real a_tilde[4];
+ {m4d tmp = -f_r*SIGMA-g_r*J;
+ {for(size_t alpha=0;alpha<4;alpha++) {
+  a_tilde[alpha] = 0;
+  for(size_t beta=0;beta<4;beta++) {
+    a_tilde[alpha] += tmp.value(alpha,beta)*Zminus[beta];
+  }}}}
+
+  real b_tilde[4];
+ {m4d I4;I4.set_identity();
+  m4d tmp = f_r*J*SIGMA+g_r*I4;
+ {for(size_t alpha=0;alpha<4;alpha++) {
+  b_tilde[alpha] = 0;
+  for(size_t beta=0;beta<4;beta++) {
+    b_tilde[alpha] += tmp.value(alpha,beta)*Zminus[beta];
+  }}}}
+
+  real cos_x0 = inlib::real_cos(a_params.LL_u*a_x0);
+  real sin_x0 = inlib::real_sin(a_params.LL_u*a_x0);
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    a_V[alpha] =  cos_x0*a_tilde[alpha]+sin_x0*b_tilde[alpha];
+    a_W[alpha] = -sin_x0*a_tilde[alpha]+cos_x0*b_tilde[alpha];
+  }}
+
+
+  return true;
+}
+
+inline bool full_plus_value(std::ostream& a_out,const full_params& a_params,
+                       const real& a_x0,const real& a_r,const real& a_theta,const real& a_phi,
+                       real a_V[4],real a_W[4]) {
+  int a_l = a_params.m_l;
+  int a_m = a_params.m_m;
+  real C_l_m;
+ {bool status = inlib::cos_spherical_harmonic<int,real>(a_m,a_l,a_theta,a_phi,C_l_m,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real S_l_m;
+ {bool status = inlib::sin_spherical_harmonic<int,real>(a_m,a_l,a_theta,a_phi,S_l_m,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real C_l_m_plus_1;
+ {bool status = inlib::cos_spherical_harmonic<int,real>(a_m+1,a_l,a_theta,a_phi,C_l_m_plus_1,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+  real S_l_m_plus_1;
+ {bool status = inlib::sin_spherical_harmonic<int,real>(a_m+1,a_l,a_theta,a_phi,S_l_m_plus_1,
+        inlib::real_sqrt_const,inlib::real_sin_const,inlib::real_cos_const,inlib::real_pi());
+  if(!status) a_out << "inlib::cos_spherical_harmonic() problem." << std::endl;}
+
+  inlib::real norm_factor = inlib::real(1)/inlib::real_sqrt(inlib::real(2*a_l+1));
+  
+  std::vector<inlib::real> Zplus;
+  Zplus.push_back(-norm_factor*sqrt_l_m(a_l,a_m)*C_l_m_plus_1);
+  Zplus.push_back( norm_factor*sqrt_l_m_1(a_l,a_m)*C_l_m);
+  Zplus.push_back(-norm_factor*sqrt_l_m_1(a_l,a_m)*S_l_m);
+  Zplus.push_back(-norm_factor*sqrt_l_m(a_l,a_m)*S_l_m_plus_1);
+
+  real f_r;
+  if(!BLP_f_discrete(a_out,a_params,a_r,f_r)) return false;
+  real g_r;
+  if(!BLP_g_discrete(a_out,a_params,a_r,g_r)) return false;
+
+  real n_1 = inlib::real_sin(a_theta)*inlib::real_cos(a_phi);
+  real n_2 = inlib::real_sin(a_theta)*inlib::real_sin(a_phi);
+  real n_3 = inlib::real_cos(a_theta);
+  typedef inlib::mat<inlib::real,4> m4d;
+  m4d S_1;inlib::set_maj_1_S(S_1);
+  m4d S_2;inlib::set_maj_2_S(S_2);
+  m4d S_3;inlib::set_maj_3_S(S_3);
+  m4d SIGMA = n_1*S_1+n_2*S_2+n_3*S_3;
+  m4d J;set_J(J);
+
+  real a_tilde[4];
+ {m4d tmp = -f_r*SIGMA-g_r*J;
+ {for(size_t alpha=0;alpha<4;alpha++) {
+  a_tilde[alpha] = 0;
+  for(size_t beta=0;beta<4;beta++) {
+    a_tilde[alpha] += tmp.value(alpha,beta)*Zplus[beta];
+  }}}}
+
+  real b_tilde[4];
+ {m4d I4;I4.set_identity();
+  m4d tmp = f_r*J*SIGMA+g_r*I4;
+ {for(size_t alpha=0;alpha<4;alpha++) {
+  b_tilde[alpha] = 0;
+  for(size_t beta=0;beta<4;beta++) {
+    b_tilde[alpha] += tmp.value(alpha,beta)*Zplus[beta];
+  }}}}
+
+  real cos_x0 = inlib::real_cos(a_params.LL_u*a_x0);
+  real sin_x0 = inlib::real_sin(a_params.LL_u*a_x0);
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    a_V[alpha] =  cos_x0*a_tilde[alpha]+sin_x0*b_tilde[alpha];
+    a_W[alpha] = -sin_x0*a_tilde[alpha]+cos_x0*b_tilde[alpha];
+  }}
+
+
+  return true;
+}
+
+}}
+
+#include <inlib/op_func>
+
+#include <inlib/lina/vec4>
+
+typedef inlib::vec4<inlib::real> vec4real;
+
+namespace inlib {
+namespace dirac {
+
+class V_W_minus : public inlib::op_func<inlib::real> {
+  typedef inlib::real real;
+  typedef inlib::op_func<real> parent;
+public:
+  virtual bool value(const real& a_x,real& a_value) const {
+    real x0 = m_args[0];
+    real x = m_args[1];
+    real y = m_args[2];
+    real z = m_args[3];
+
+         if(m_coord==0) {x0 = a_x;}
+    else if(m_coord==1) {x = a_x;}
+    else if(m_coord==2) {y = a_x;}
+    else if(m_coord==3) {z = a_x;}
+    else {a_value = real(0);return false;}
+
+    real r = inlib::real_sqrt(x*x+y*y+z*z);
+    real xy = inlib::real_sqrt(x*x+y*y);
+    real theta = inlib::real_atan2(xy,z);
+    real phi = inlib::real_atan2(y,x);
+    //if(phi<0) phi = 2*pi-phi;
+
+    real V[4];real W[4];
+    if(!full_minus_value(m_out,m_params,x0,r,theta,phi,V,W)) {a_value = real(0);return false;}
+         if(m_component==0) {a_value = V[0];return true;}
+    else if(m_component==1) {a_value = V[1];return true;}
+    else if(m_component==2) {a_value = V[2];return true;}
+    else if(m_component==3) {a_value = V[3];return true;}
+
+    else if(m_component==4) {a_value = W[0];return true;}
+    else if(m_component==5) {a_value = W[1];return true;}
+    else if(m_component==6) {a_value = W[2];return true;}
+    else if(m_component==7) {a_value = W[3];return true;}
+
+    a_value = real(0);
+    return false;
+  }
+public:
+  V_W_minus(std::ostream& a_out,const full_params& a_params,const vec4real& a_args,unsigned int a_coord,unsigned int a_component)
+  :parent()
+  ,m_out(a_out)
+  ,m_params(a_params)
+  ,m_args(a_args)
+  ,m_coord(a_coord)
+  ,m_component(a_component)
+  {}
+  virtual ~V_W_minus(){}
+public:
+  V_W_minus(const V_W_minus& a_from)
+  :parent(a_from)
+  ,m_out(a_from.m_out)
+  ,m_params(a_from.m_params)
+  ,m_args(a_from.m_args)
+  ,m_coord(a_from.m_coord)
+  ,m_component(a_from.m_component)
+  {}
+  V_W_minus& operator=(const V_W_minus& a_from){
+    parent::operator=(a_from);
+    m_params = a_from.m_params;
+    m_args = a_from.m_args;
+    m_coord = a_from.m_coord;
+    m_component = a_from.m_component;
+    return *this;
+  }
+protected:
+  std::ostream& m_out;
+  full_params m_params;
+  vec4real m_args;
+  unsigned int m_coord;
+  unsigned int m_component;
+};
+
+class V_W_plus : public inlib::op_func<inlib::real> {
+  typedef inlib::real real;
+  typedef inlib::op_func<real> parent;
+public:
+  virtual bool value(const real& a_x,real& a_value) const {
+    real x0 = m_args[0];
+    real x = m_args[1];
+    real y = m_args[2];
+    real z = m_args[3];
+
+         if(m_coord==0) {x0 = a_x;}
+    else if(m_coord==1) {x = a_x;}
+    else if(m_coord==2) {y = a_x;}
+    else if(m_coord==3) {z = a_x;}
+    else {a_value = real(0);return false;}
+
+    real r = inlib::real_sqrt(x*x+y*y+z*z);
+    real xy = inlib::real_sqrt(x*x+y*y);
+    real theta = inlib::real_atan2(xy,z);
+    real phi = inlib::real_atan2(y,x);
+    //if(phi<0) phi = 2*pi-phi;
+
+    real V[4];real W[4];
+    if(!full_plus_value(m_out,m_params,x0,r,theta,phi,V,W)) {a_value = real(0);return false;}
+         if(m_component==0) {a_value = V[0];return true;}
+    else if(m_component==1) {a_value = V[1];return true;}
+    else if(m_component==2) {a_value = V[2];return true;}
+    else if(m_component==3) {a_value = V[3];return true;}
+
+    else if(m_component==4) {a_value = W[0];return true;}
+    else if(m_component==5) {a_value = W[1];return true;}
+    else if(m_component==6) {a_value = W[2];return true;}
+    else if(m_component==7) {a_value = W[3];return true;}
+
+    a_value = real(0);
+    return false;
+  }
+public:
+  V_W_plus(std::ostream& a_out,const full_params& a_params,const vec4real& a_args,unsigned int a_coord,unsigned int a_component)
+  :parent()
+  ,m_out(a_out)
+  ,m_params(a_params)
+  ,m_args(a_args)
+  ,m_coord(a_coord)
+  ,m_component(a_component)
+  {}
+  virtual ~V_W_plus(){}
+public:
+  V_W_plus(const V_W_plus& a_from)
+  :parent(a_from)
+  ,m_out(a_from.m_out)
+  ,m_params(a_from.m_params)
+  ,m_args(a_from.m_args)
+  ,m_coord(a_from.m_coord)
+  ,m_component(a_from.m_component)
+  {}
+  V_W_plus& operator=(const V_W_plus& a_from){
+    parent::operator=(a_from);
+    m_params = a_from.m_params;
+    m_args = a_from.m_args;
+    m_coord = a_from.m_coord;
+    m_component = a_from.m_component;
+    return *this;
+  }
+protected:
+  std::ostream& m_out;
+  full_params m_params;
+  vec4real m_args;
+  unsigned int m_coord;
+  unsigned int m_component;
+};
+
+}}
+
+#include <inlib/eqT>
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+#include <inlib/test>
+
+inline bool check_dirac_full_x2(std::ostream& a_out,bool a_verbose,unsigned int a_prec = 1024) {
+  // Check solution of Dirac equation with x**2 potential :
+  if(a_verbose) a_out << "check_dirac_full_x2: begin:" << std::endl;
+
+  typedef inlib::mat<inlib::real,4> m4real;
+  std::vector<m4real> eta_Ss_J(4);
+  inlib::set_maj_0_S(eta_Ss_J[0]);
+  inlib::set_maj_1_S(eta_Ss_J[1]);
+  inlib::set_maj_2_S(eta_Ss_J[2]);
+  inlib::set_maj_3_S(eta_Ss_J[3]);
+  m4real J;set_J(J);
+  inlib::multiply(eta_Ss_J,J);
+  eta_Ss_J[1] *= inlib::real(-1);
+  eta_Ss_J[2] *= inlib::real(-1);
+  eta_Ss_J[3] *= inlib::real(-1);
+
+  inlib::real depsilon = 1e-3;
+
+  inlib::real LL_alpha = 0.9;
+  inlib::real alpha_2 = LL_alpha*LL_alpha;
+  inlib::real LL_v = 1.1;
+  if(a_verbose) a_out << "LL_v " << LL_v << std::endl;
+
+  inlib::real dxepsil(1e-3);
+  inlib::real dxfactor(0.5);
+  unsigned int dxiters = 5;  //=> dxepsil*(dxfactor**dxiters)
+  ////////////////////////////////////////////////
+  ////////////////////////////////////////////////
+  ////////////////////////////////////////////////
+
+  //int orbital_l = 3;
+ {for(int orbital_l=2;orbital_l<=4;orbital_l++) {
+  int p_min = -orbital_l;
+  int p_max = orbital_l-2;
+  //int orbital_p = 1;  // -l<= p <= l-2, here -3<= p <= 1
+ {for(int orbital_p=p_min;orbital_p<=p_max;orbital_p++) {
+
+  ////////////////////////////////////////////////////////
+  /// lambda_minus: //////////////////////////////////////
+  ////////////////////////////////////////////////////////
+ {inlib::real lambda_minus(-(orbital_l+1));
+  if(a_verbose) a_out << "lambda_minus " << lambda_minus << std::endl;
+  inlib::real LL_chi = lambda_minus+inlib::real(1);
+  
+  inlib::real chi_2 = LL_chi*LL_chi;
+  if(chi_2<alpha_2) {
+    a_out << "check_dirac_full: chi_2 < alpha_2: " << chi_2 << std::endl;
+    a_out << "alpha_2: " << alpha_2 << std::endl;
+    return false;
+  }
+
+  if(a_verbose) a_out << "LL_chi " << LL_chi << std::endl;
+  
+  inlib::real LL_gamma = inlib::real_sqrt(chi_2-alpha_2);
+  if(a_verbose) a_out << "LL_gamma " << LL_gamma << std::endl;
+  
+ {for(inlib::real LL_nr=1;LL_nr<=3;LL_nr++) { //can't be 0 to have f(r), g(r) "well-behaved".
+ 
+  if(a_verbose) a_out << "LL_nr " << LL_nr << std::endl;
+
+  inlib::real nr_gamma = LL_nr+LL_gamma;
+  inlib::real LL_u = LL_v/inlib::real_sqrt(1+alpha_2/(nr_gamma*nr_gamma));
+  if(a_verbose) a_out << "LL_u " << LL_u << std::endl;
+
+  inlib::real LL_lambda = inlib::real_sqrt(LL_v*LL_v-LL_u*LL_u);
+  if(a_verbose) a_out << "LL_lambda " << LL_lambda << std::endl;
+
+  //cross-check: 1F1 a:
+  inlib::real a_1F1 = LL_gamma - LL_alpha*LL_u/LL_lambda;
+  if(!inlib::numbers_are_equal(LL_nr,-a_1F1,depsilon,inlib::real_fabs_const)) {
+    a_out << "check_dirac_fulll -a_1F1 problem: " << -a_1F1<< std::endl;
+    a_out << "expected: nr " << LL_nr << std::endl;
+    return false;
+  }
+  
+  inlib::dirac::full_params params(LL_chi,LL_alpha,LL_v,LL_u,orbital_l,orbital_p);
+
+  inlib::real T = inlib::real(1)/(LL_u*LL_v); //LL_u*LL_v = E/hbar = 1/T
+  if(a_verbose) a_out << "T " << T << std::endl;
+  inlib::real t = 10*T;
+  inlib::real omega = t/T;
+  if(a_verbose) a_out << "omega " << omega << std::endl;
+  inlib::real light_speed = 1;
+  inlib::real x0 = light_speed*t;
+  if(a_verbose) a_out << "x0 " << x0 << std::endl;
+
+  inlib::real factor_r = 1.0/(2.*LL_lambda);
+
+//inlib::real r = 0.1;
+ {for(inlib::real _r=0.1;_r<2;_r+=0.6) {
+  inlib::real r = factor_r*_r;
+//if(a_verbose) a_out << "r " << r  << std::endl;
+
+  inlib::real dtheta(30); //degree.
+  inlib::real dphi(60);
+
+//inlib::real theta = inlib::real_deg2rad()*30;{{
+//inlib::real phi = inlib::real_deg2rad()*60;{{
+ {for(inlib::real _theta=inlib::real(0);_theta<inlib::real(180);_theta+=dtheta) {
+  inlib::real theta = _theta*inlib::real_deg2rad();
+ {for(inlib::real _phi=inlib::real(0);_phi<inlib::real(360);_phi+=dphi) {
+  inlib::real phi = _phi*inlib::real_deg2rad();
+
+  inlib::real V[4];inlib::real W[4];
+  if(!inlib::dirac::full_minus_value(a_out,params,x0,r,theta,phi,V,W)) return false;
+
+  inlib::real x = r*inlib::real_sin(theta)*inlib::real_cos(phi);
+  inlib::real y = r*inlib::real_sin(theta)*inlib::real_sin(phi);
+  inlib::real z = r*inlib::real_cos(theta);
+
+  vec4real args(x0,x,y,z);
+
+  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    inlib::real left(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      for(size_t mu=0;mu<4;mu++) {
+        inlib::dirac::V_W_minus _V(a_out,params,args,mu,beta);
+        inlib::op_derivative<unsigned int,inlib::real>
+        d_V_mu(a_out,_V,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+	inlib::real value;
+        if(!d_V_mu.value(args[mu],value)) return false;
+        left += eta_Ss_J[mu].value(alpha,beta)*value;
+      }
+    }}
+    left -= LL_v*V[alpha];
+    // em term:
+    inlib::real right(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      right -= (LL_alpha/r)*J.value(alpha,beta)*W[beta];
+    }}
+    if(a_verbose) a_out << left << ", right " << right  << std::endl;
+    if(!inlib::numbers_are_equal(left,right,depsilon,inlib::real_fabs_const)) {
+      a_out << "check_dirac_full problem:" << std::endl;
+      //a_out << "l " << a_l << ", m " << a_m << std::endl;
+      a_out << "theta " << theta*inlib::real_rad2deg() << ", phi " << phi*inlib::real_rad2deg() << std::endl;
+      a_out << "alpha " << alpha << std::endl;
+      a_out << left << " != " << right  << std::endl;
+      return false;
+    }
+  }}
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    inlib::real left(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      for(size_t mu=0;mu<4;mu++) {
+        inlib::dirac::V_W_minus _W(a_out,params,args,mu,beta+4);
+        inlib::op_derivative<unsigned int,inlib::real>
+        d_W_mu(a_out,_W,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+	inlib::real value;
+        if(!d_W_mu.value(args[mu],value)) return false;
+        left += eta_Ss_J[mu].value(alpha,beta)*value;
+      }
+    }}
+    left -= LL_v*W[alpha];
+    // em term:
+    inlib::real right(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      right += (LL_alpha/r)*J.value(alpha,beta)*V[beta];
+    }}
+    if(a_verbose) a_out << left << ", right " << right  << std::endl;
+    if(!inlib::numbers_are_equal(left,right,depsilon,inlib::real_fabs_const)) {
+      a_out << "check_dirac_full problem:" << std::endl;
+      //a_out << "l " << a_l << ", m " << a_m << std::endl;
+      a_out << "theta " << theta*inlib::real_rad2deg() << ", phi " << phi*inlib::real_rad2deg() << std::endl;
+      a_out << "alpha " << alpha << std::endl;
+      a_out << left << " != " << right  << std::endl;
+      return false;
+    }
+  }}
+
+  }} //end for(phi)
+  }} //end for(theta)
+  }} //end for(r)
+  }} //end for(LL_nr)
+
+  } //lambda_minus
+
+  ////////////////////////////////////////////////////////
+  /// lambda_plus: ///////////////////////////////////////
+  ////////////////////////////////////////////////////////
+  //if(false)
+ {inlib::real lambda_plus(orbital_l);
+  if(a_verbose) a_out << "lambda_plus " << lambda_plus << std::endl;
+  inlib::real LL_chi = lambda_plus+inlib::real(1);
+
+  inlib::real chi_2 = LL_chi*LL_chi;
+  if(chi_2<alpha_2) {
+    a_out << "check_dirac_full: chi_2 < alpha_2: " << chi_2 << std::endl;
+    a_out << "alpha_2: " << alpha_2 << std::endl;
+    return false;
+  }
+  
+  if(a_verbose) a_out << "LL_chi " << LL_chi << std::endl;
+
+  inlib::real LL_gamma = inlib::real_sqrt(chi_2-alpha_2);
+  if(a_verbose) a_out << "LL_gamma " << LL_gamma << std::endl;
+
+ {for(inlib::real LL_nr=1;LL_nr<=3;LL_nr++) { //can't be 0 to have f(r), g(r) "well-behaved".
+ 
+  if(a_verbose) a_out << "LL_nr " << LL_nr << std::endl;
+
+  inlib::real nr_gamma = LL_nr+LL_gamma;
+  inlib::real LL_u = LL_v/inlib::real_sqrt(1+alpha_2/(nr_gamma*nr_gamma));
+  if(a_verbose) a_out << "LL_u " << LL_u << std::endl;
+
+  inlib::real LL_lambda = inlib::real_sqrt(LL_v*LL_v-LL_u*LL_u);
+  if(a_verbose) a_out << "LL_lambda " << LL_lambda << std::endl;
+
+  //cross-check: 1F1 a:
+  inlib::real a_1F1 = LL_gamma - LL_alpha*LL_u/LL_lambda;
+  if(!inlib::numbers_are_equal(LL_nr,-a_1F1,depsilon,inlib::real_fabs_const)) {
+    a_out << "check_dirac_fulll -a_1F1 problem: " << -a_1F1<< std::endl;
+    a_out << "expected: nr " << LL_nr << std::endl;
+    return false;
+  }
+
+  inlib::dirac::full_params params(LL_chi,LL_alpha,LL_v,LL_u,orbital_l,orbital_p);
+
+  inlib::real T = inlib::real(1)/(LL_u*LL_v); //LL_u*LL_v = E/hbar = 1/T
+  if(a_verbose) a_out << "T " << T << std::endl;
+  inlib::real t = 10*T;
+  inlib::real omega = t/T;
+  if(a_verbose) a_out << "omega " << omega << std::endl;
+  inlib::real light_speed = 1;
+  inlib::real x0 = light_speed*t;
+  if(a_verbose) a_out << "x0 " << x0 << std::endl;
+
+  inlib::real factor_r = 1.0/(2.*LL_lambda);
+
+//inlib::real r = 0.1;
+ {for(inlib::real _r=0.1;_r<2;_r+=0.6) {
+  inlib::real r = factor_r*_r;
+//if(a_verbose) a_out << "r " << r  << std::endl;
+
+  inlib::real dtheta(30); //degree.
+  inlib::real dphi(60);
+
+//inlib::real theta = inlib::real_deg2rad()*30;{{
+//inlib::real phi = inlib::real_deg2rad()*60;{{
+ {for(inlib::real _theta=inlib::real(0);_theta<inlib::real(180);_theta+=dtheta) {
+  inlib::real theta = _theta*inlib::real_deg2rad();
+ {for(inlib::real _phi=inlib::real(0);_phi<inlib::real(360);_phi+=dphi) {
+  inlib::real phi = _phi*inlib::real_deg2rad();
+
+  inlib::real V[4];inlib::real W[4];
+  if(!inlib::dirac::full_plus_value(a_out,params,x0,r,theta,phi,V,W)) return false;
+
+  inlib::real x = r*inlib::real_sin(theta)*inlib::real_cos(phi);
+  inlib::real y = r*inlib::real_sin(theta)*inlib::real_sin(phi);
+  inlib::real z = r*inlib::real_cos(theta);
+
+  vec4real args(x0,x,y,z);
+
+  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    inlib::real left(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      for(size_t mu=0;mu<4;mu++) {
+        inlib::dirac::V_W_plus _V(a_out,params,args,mu,beta);
+        inlib::op_derivative<unsigned int,inlib::real>
+        d_V_mu(a_out,_V,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+	inlib::real value;
+        if(!d_V_mu.value(args[mu],value)) return false;
+        left += eta_Ss_J[mu].value(alpha,beta)*value;
+      }
+    }}
+    left -= LL_v*V[alpha];
+    // em term:
+    inlib::real right(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      right -= (LL_alpha/r)*J.value(alpha,beta)*W[beta];
+    }}
+    if(a_verbose) a_out << left << ", right " << right  << std::endl;
+    if(!inlib::numbers_are_equal(left,right,depsilon,inlib::real_fabs_const)) {
+      a_out << "check_dirac_full problem:" << std::endl;
+      //a_out << "l " << a_l << ", m " << a_m << std::endl;
+      a_out << "theta " << theta*inlib::real_rad2deg() << ", phi " << phi*inlib::real_rad2deg() << std::endl;
+      a_out << "alpha " << alpha << std::endl;
+      a_out << left << " != " << right  << std::endl;
+      return false;
+    }
+  }}
+ {for(size_t alpha=0;alpha<4;alpha++) {
+    inlib::real left(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      for(size_t mu=0;mu<4;mu++) {
+        inlib::dirac::V_W_plus _W(a_out,params,args,mu,beta+4);
+        inlib::op_derivative<unsigned int,inlib::real>
+        d_W_mu(a_out,_W,dxepsil,dxfactor,dxiters,inlib::real_set_prec_from,inlib::real_fabs_const);
+	inlib::real value;
+        if(!d_W_mu.value(args[mu],value)) return false;
+        left += eta_Ss_J[mu].value(alpha,beta)*value;
+      }
+    }}
+    left -= LL_v*W[alpha];
+    // em term:
+    inlib::real right(0);
+   {for(size_t beta=0;beta<4;beta++) {
+      right += (LL_alpha/r)*J.value(alpha,beta)*V[beta];
+    }}
+    if(a_verbose) a_out << left << ", right " << right  << std::endl;
+    if(!inlib::numbers_are_equal(left,right,depsilon,inlib::real_fabs_const)) {
+      a_out << "check_dirac_full problem:" << std::endl;
+      //a_out << "l " << a_l << ", m " << a_m << std::endl;
+      a_out << "theta " << theta*inlib::real_rad2deg() << ", phi " << phi*inlib::real_rad2deg() << std::endl;
+      a_out << "alpha " << alpha << std::endl;
+      a_out << left << " != " << right  << std::endl;
+      return false;
+    }
+  }}
+
+  }} //end for(phi)
+  }} //end for(theta)
+  }} //end for(r)
+  }} //end for(LL_nr)
+
+  } //lambda_plus
+
+  }} //end for(orbital_p)
+  }} //end for(orbital_l)
+
+  if(a_verbose) a_out << "check_dirac_full_x2: end." << std::endl;
+
+  return true;
+}
+
+
+#endif
